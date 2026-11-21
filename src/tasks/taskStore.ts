@@ -143,6 +143,11 @@ export class TaskStore {
   }
 
   private parse(content: string, expectedStatus?: TaskStatus): Task[] {
+    const startCount = (content.match(/\[TASK\]/g) ?? []).length;
+    const endCount = (content.match(/\[\/TASK\]/g) ?? []).length;
+    if (startCount !== endCount) {
+      throw new Error("El archivo contiene bloques [TASK] sin cerrar o cierres sobrantes.");
+    }
     const blocks = content.match(/\[TASK\][\s\S]*?\[\/TASK\]/g) ?? [];
     return blocks.map((block, index) => {
       const values = new Map<string, string>();
