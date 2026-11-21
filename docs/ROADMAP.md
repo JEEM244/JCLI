@@ -22,16 +22,21 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [ ] Configuración de rutas y perfiles de trabajo.
 
 ## V0.3 — Proveedores de IA
-- [ ] Conectores oficiales para OpenAI, Gemini, DeepSeek y Claude.
-- [ ] Prueba de conexión y manejo seguro de errores.
-- [ ] Presupuestos, límites y registro de consumo cuando las APIs lo permitan.
-- [ ] Las claves se mantienen fuera del repositorio.
+- [x] Conectores HTTP oficiales para OpenAI Responses, Gemini generateContent, DeepSeek Chat Completions y Anthropic Messages.
+- [x] Consulta de catálogos de modelos para verificar credenciales sin generar una respuesta.
+- [x] Manejo de errores HTTP, tiempo de espera y protección de claves en mensajes de error.
+- [x] Límites locales por día, tamaño de entrada, salida y duración de solicitud.
+- [x] Registro local de solicitudes y tokens reportados por los proveedores.
+- [x] Generación desactivada por defecto y habilitación explícita mediante configuración local.
+- [ ] Cálculo monetario exacto y presupuestos sincronizados con cada proveedor.
+- [ ] Streaming de respuestas y conversaciones persistentes.
 
 ## V0.4 — Coordinación multiagente
 - [ ] Coordinador de tareas y asignación de agentes.
-- [ ] Contexto compartido por proyecto.
+- [ ] Contexto compartido por proyecto, con selección explícita de archivos.
 - [ ] Revisión de resultados y registro de decisiones.
 - [ ] Aprobación explícita antes de acciones importantes o destructivas.
+- [ ] Reglas de privacidad y límites de contexto por agente.
 
 ## V0.5 — Entorno de desarrollo
 - [x] Detección y apertura de proyectos en Visual Studio 2026.
