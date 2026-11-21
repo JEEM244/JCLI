@@ -89,11 +89,12 @@ troc dev run WEB build --confirm
 troc dev run WEB test --confirm
 troc dev show ID_EJECUCION
 troc dev runs
+troc dev vscode-tasks WEB --confirm
 ```
 
 La planificación no ejecuta nada. La ejecución requiere `--confirm`, corre localmente dentro de la carpeta registrada, no usa una shell con comandos escritos por el usuario, tiene un tiempo máximo y limita la salida guardada. Los scripts de compilación/pruebas pertenecen al proyecto y pueden ejecutar código; revisa el plan antes de confirmar. JCLI no instala paquetes, no ejecuta `npm install` y filtra variables con nombres de credenciales antes de iniciar los procesos. Las salidas quedan en `data/dev-runs/`, excluida de Git.
 
-Visual Studio 2026 y Visual Studio Code siguen abriendo el proyecto mediante `troc ide`; la nueva ejecución se basa en los CLI de cada toolchain y no controla todavía las ventanas gráficas ni sus extensiones.
+Visual Studio 2026 y Visual Studio Code siguen abriendo el proyecto mediante `troc ide`; .NET usa los comandos CLI del SDK, y VS Code puede recibir tareas locales con `troc dev vscode-tasks WEB --confirm`. El generador no sobrescribe `.vscode/tasks.json` existente. JCLI todavía no controla las ventanas gráficas ni sus extensiones.
 
 # Equipo multiagente
 troc team agents
