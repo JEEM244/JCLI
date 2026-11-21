@@ -68,6 +68,14 @@ troc ai ask deepseek "Resume este fragmento de código"
 troc ai usage
 troc ai usage 50
 
+# Equipo multiagente
+troc team agents
+troc tasks agents WEB-001 planner,implementer,reviewer
+troc team plan WEB-001 --file README.md
+troc team run WEB-001 --file README.md
+troc team show <ID_EJECUCIÓN>
+troc team decide <ID_EJECUCIÓN> accept
+
 # Historial
 troc history
 troc history 50
@@ -92,16 +100,20 @@ Los nombres pueden cambiar y el acceso depende de cada cuenta. Consulta los mode
 
 - Las claves van únicamente en `.env`, que está excluido de Git. Nunca pegues una clave en un issue, commit o archivo TXT compartido.
 - `JCLI_ENABLE_API_CALLS=false` es el valor inicial. La generación no funciona hasta que se active explícitamente.
+- `JCLI_ENABLE_TEAM_RUNS=false` mantiene desactivadas las ejecuciones multiagente. Para usarlas se requieren ambas opciones activadas; una ejecución puede enviar hasta 3 solicitudes secuenciales.
 - Antes de habilitar llamadas que pueden generar cargos, revisa el precio y la facturación del proveedor con tu madre, padre o tutor.
 - `troc providers test ID` consulta el catálogo de modelos para comprobar credenciales; no genera texto.
 - El límite local inicial es de 5 solicitudes por día, 6,000 caracteres de entrada, 512 tokens máximos de salida y 90 segundos por solicitud.
 - Estos límites son una protección local, no un tope monetario ni un sustituto de los límites de gasto de la cuenta del proveedor.
 - `troc ai usage` muestra intentos registrados y tokens reportados por la API. No calcula importes ni garantiza que todos los proveedores reporten el uso con el mismo detalle.
 
+El equipo se puede configurar y planear sin contactar a ningún proveedor. Para una ejecución remota, revisa primero los costos con un adulto responsable. Las llamadas multiagente pueden generar varios cargos, por lo que permanecen desactivadas por defecto.
+
 Para activar generación después de revisar lo anterior, cambia en `.env`:
 
 ```dotenv
 JCLI_ENABLE_API_CALLS=true
+JCLI_ENABLE_TEAM_RUNS=true
 ```
 
 ## Tareas TXT
@@ -122,6 +134,19 @@ project=WEB
 
 La línea `project=` es opcional. Estados: `pendientes`, `en_proceso`, `completadas` y `archivadas`. Los filtros de `tasks list` incluyen `--project ID`, `--priority nivel` y `--search texto`.
 
+## Coordinación multiagente
+
+Las asignaciones de agentes se guardan en los propios TXT con la línea opcional `agents=planner,reviewer`. Hay cuatro perfiles editables en `config/agents.json`: planificador, proponente de código, revisor y analista de pruebas. Cada tarea puede asignar hasta tres.
+
+- `troc team agents`: muestra los perfiles.
+- `troc tasks agents ID planner,reviewer`: asigna perfiles a una tarea. Usa `none` para quitar la asignación.
+- `troc team plan ID --file README.md`: valida la selección de contexto y muestra las solicitudes previstas sin llamar a APIs.
+- `troc team run ID --file README.md`: envía la tarea en secuencia a los agentes asignados.
+- `troc team show RUN_ID`: consulta resultados guardados localmente.
+- `troc team decide RUN_ID accept|reject`: registra la revisión humana.
+
+Solo se envían archivos escritos después de `--file`. JCLI bloquea rutas fuera del proyecto, archivos `.env`, credenciales, carpetas de dependencias y archivos demasiado grandes. El contenido del repositorio se trata como datos, no como instrucciones. Las respuestas quedan guardadas en `data/agents/runs/`. **Aceptar un resultado no modifica ningún archivo**: las propuestas requieren revisión y aplicación manual.
+
 ## Historial y uso
 
 Las operaciones generales se guardan en `data/history/events.jsonl`. Las solicitudes a proveedores y sus métricas de uso se guardan por separado en `data/history/ai-usage.jsonl`.
@@ -132,4 +157,4 @@ Los proyectos se guardan en `data/projects/projects.json`. `troc project analyze
 
 ## Estado actual y límites
 
-JCLI administra tareas, proyectos y conexiones directas de generación con los cuatro proveedores configurados. La etapa actual no incluye todavía coordinación multiagente, conversación persistente, lectura automática de todo un repositorio por IA, streaming de respuestas ni cálculos de costos. Los cambios de archivos, Git y compilaciones desde IDEs siguen requiriendo etapas posteriores.
+JCLI administra tareas, proyectos y conexiones directas de generación con los cuatro proveedores configurados. La etapa actual no incluye conversación persistente, lectura automática de todo un repositorio por IA, streaming de respuestas ni cálculos de costos. Los cambios de archivos, Git y compilaciones desde IDEs siguen requiriendo etapas posteriores.
