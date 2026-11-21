@@ -1,4 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 export interface ProjectAnalysis {
@@ -86,9 +87,7 @@ export async function analyzeProject(root: string, maxFiles = 2500): Promise<Pro
   }
 
   await walk(root, 0);
-  const gitRepository = await readdir(root, { withFileTypes: true })
-    .then((entries) => entries.some((entry) => entry.isDirectory() && entry.name === ".git"))
-    .catch(() => false);
+  const gitRepository = existsSync(path.join(root, ".git"));
 
   return {
     root,
