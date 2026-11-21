@@ -55,6 +55,9 @@ export class AIService {
   }
 
   async ask(id: string, prompt: string): Promise<AIResponse> {
+    if (process.env.JCLI_ENABLE_API_CALLS !== "true") {
+      throw new Error("Las llamadas de generación están desactivadas. Revisa los posibles cargos y, con autorización de tu madre, padre o tutor, activa JCLI_ENABLE_API_CALLS=true en .env.");
+    }
     const { provider, key, settings } = await this.provider(id);
     if (!prompt.trim()) throw new Error("Escribe una instrucción para la IA.");
     if (prompt.length > settings.maxInputCharacters) {
