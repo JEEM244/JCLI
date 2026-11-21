@@ -6,7 +6,7 @@ import type { Task, TaskPriority, TaskStatus } from "../types.js";
 const STATUSES: TaskStatus[] = ["pendientes", "en_proceso", "completadas", "archivadas"];
 const PRIORITIES: TaskPriority[] = ["baja", "media", "alta", "urgente"];
 
-type TaskChanges = Partial<Pick<Task, "title" | "description" | "priority" | "projectId">>;
+type TaskChanges = Partial<Pick<Task, "title" | "description" | "priority" | "projectId" | "agentIds">>;
 
 function isMissingFile(error: unknown): boolean {
   return (error as NodeJS.ErrnoException)?.code === "ENOENT";
@@ -165,7 +165,8 @@ export class TaskStore {
         status,
         priority,
         created: values.get("created") ?? "",
-        ...(values.has("project") ? { projectId: values.get("project") } : {})
+        ...(values.has("project") ? { projectId: values.get("project") } : {}),
+        ...(values.has("agents") ? { agentIds: values.get("agents")?.split(",").map((id) => id.trim()).filter(Boolean) } : {})
       };
 
       try {
@@ -193,6 +194,7 @@ export class TaskStore {
       "priority=" + task.priority,
       "created=" + task.created,
       ...(task.projectId ? ["project=" + task.projectId] : []),
+      ...(task.agentIds?.length ? ["agents=" + task.agentIds.join(",")] : []),
       "[/TASK]"
     ].join("\n")).join("\n\n");
   }
