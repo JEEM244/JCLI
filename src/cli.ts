@@ -76,6 +76,7 @@ function printTask(task: Task): void {
   console.log("[" + task.status + "] " + task.id + " — " + task.title);
   console.log("  Prioridad: " + task.priority);
   console.log("  Proyecto: " + (task.projectId ?? "sin asociar"));
+  console.log("  Agentes: " + (task.agentIds?.join(", ") || "sin asignar"));
   if (task.description) console.log("  " + task.description);
   console.log("  Creada: " + (task.created || "sin fecha"));
 }
