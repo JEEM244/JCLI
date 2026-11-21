@@ -21,7 +21,8 @@ export type HistoryAction =
   | "task.agents_assigned"
   | "project.created"
   | "team.run_completed"
-  | "team.run_reviewed";
+  | "team.run_reviewed"
+  | "dev.command_finished";
 
 export interface HistoryEntry {
   id: string;
