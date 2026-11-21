@@ -21,7 +21,9 @@ async function findDotnetTarget(root: string): Promise<string | undefined> {
       return undefined;
     }
     const target = entries.find((entry) =>
-      entry.isFile() && /\.(sln|slnx|csproj)$/i.test(entry.name)
+      entry.isFile() && /\.(sln|slnx)$/i.test(entry.name)
+    ) ?? entries.find((entry) =>
+      entry.isFile() && /\.csproj$/i.test(entry.name)
     );
     if (target) return path.join(directory, target.name);
     for (const entry of entries) {
