@@ -12,6 +12,8 @@ import { AIUsageStore } from "./ai/usageStore.js";
 import { AgentRegistry } from "./agents/agentRegistry.js";
 import { TeamRunStore } from "./agents/runStore.js";
 import { TeamCoordinator } from "./agents/teamCoordinator.js";
+import { DevService } from "./dev/devService.js";
+import { DevRunStore } from "./dev/runStore.js";
 import { analyzeProject } from "./projects/projectAnalyzer.js";
 import { inspectGit } from "./projects/gitInspector.js";
 import { detectVSCode, detectVisualStudio2026 } from "./integrations/ide/detector.js";
@@ -25,6 +27,8 @@ const aiUsage = new AIUsageStore();
 const agentRegistry = new AgentRegistry();
 const teamRuns = new TeamRunStore();
 const team = new TeamCoordinator(store, projects, ai, agentRegistry, teamRuns, history);
+const devRuns = new DevRunStore();
+const dev = new DevService(projects, undefined, devRuns, history);
 const statuses: TaskStatus[] = ["pendientes", "en_proceso", "completadas", "archivadas"];
 const priorities: TaskPriority[] = ["baja", "media", "alta", "urgente"];
 
@@ -50,6 +54,11 @@ function help(): void {
     "  troc project open <ID>",
     "  troc project analyze <ID>",
     "  troc project git <ID>",
+    "  troc dev inspect <ID_PROYECTO>",
+    "  troc dev plan <ID_PROYECTO> <build|test>",
+    "  troc dev run <ID_PROYECTO> <build|test> --confirm",
+    "  troc dev show <ID_EJECUCIÓN>",
+    "  troc dev runs [límite]",
     "  troc history [limite]",
     "  troc ide vscode detect",
     "  troc ide vs2026 detect",
@@ -439,6 +448,83 @@ export async function runCli(args: string[]): Promise<void> {
       return;
     }
     throw new Error("Uso de IA no válido. Ejecuta troc help.");
+  }
+
+  if (group === "dev") {
+    if (action === "inspect" && rest[0]) {
+      const toolchain = await dev.inspect(rest[0]);
+      console.log("Entorno de desarrollo: " + toolchain.projectId);
+      console.log("Carpeta: " + toolchain.directory);
+      console.log("Detectado: " + (toolchain.detected.join(", ") || "ningún entorno compatible"));
+      console.log("Comandos disponibles:");
+      for (const command of toolchain.commands) {
+        console.log("  [" + command.action + "] " + command.display);
+        console.log("    " + command.note);
+      }
+      for (const warning of toolchain.warnings) console.log("Aviso: " + warning);
+      return;
+    }
+    if (action === "plan" && rest[0] && rest[1]) {
+      if (rest[1] !== "build" && rest[1] !== "test") {
+        throw new Error("La acción debe ser build o test.");
+      }
+      const toolchain = await dev.inspect(rest[0]);
+      const commands = toolchain.commands.filter((command) => command.action === rest[1]);
+      console.log("Plan " + rest[1] + " para " + rest[0]);
+      if (!commands.length) console.log("No hay comandos compatibles para esta acción.");
+      for (const command of commands) {
+        console.log("  " + command.display);
+        console.log("  " + command.note);
+      }
+      for (const warning of toolchain.warnings) console.log("Aviso: " + warning);
+      console.log("\nPlanear no ejecuta comandos ni modifica archivos.");
+      console.log("Para ejecutar, vuelve a revisar el comando y usa --confirm.");
+      return;
+    }
+    if (action === "run" && rest[0] && rest[1]) {
+      if (rest[1] !== "build" && rest[1] !== "test") {
+        throw new Error("La acción debe ser build o test.");
+      }
+      if (rest.length !== 3 || rest[2] !== "--confirm") {
+        throw new Error("Esta acción requiere el parámetro --confirm. Consulta primero troc dev plan " + rest[0] + " " + rest[1] + ".");
+      }
+      const results = await dev.run(rest[0], rest[1], true);
+      for (const result of results) {
+        console.log("\n[" + result.status + "] " + result.command);
+        console.log("Duración: " + result.durationMs + " ms | Código de salida: " +
+          (result.exitCode === null ? "sin código" : result.exitCode));
+        if (result.timedOut) console.log("El proceso superó el tiempo límite.");
+        console.log("ID de ejecución: " + result.id);
+        if (result.stdout) console.log("\nSTDOUT:\n" + result.stdout);
+        if (result.stderr) console.log("\nSTDERR:\n" + result.stderr);
+        console.log("\nConsulta con: troc dev show " + result.id);
+      }
+      return;
+    }
+    if (action === "show" && rest[0]) {
+      const result = await dev.getRun(rest[0]);
+      if (!result) throw new Error("No se encontró la ejecución " + rest[0] + ".");
+      console.log(result.command + " — " + result.status);
+      console.log("Proyecto: " + result.projectId);
+      console.log("Inicio: " + result.startedAt);
+      console.log("Duración: " + result.durationMs + " ms");
+      console.log("Código de salida: " + (result.exitCode ?? "sin código"));
+      if (result.stdout) console.log("\nSTDOUT:\n" + result.stdout);
+      if (result.stderr) console.log("\nSTDERR:\n" + result.stderr);
+      return;
+    }
+    if (action === "runs") {
+      const limit = rest[0] ? Number(rest[0]) : 20;
+      if (!Number.isInteger(limit) || limit < 1) throw new Error("El límite debe ser un entero positivo.");
+      const results = await devRuns.list(limit);
+      if (!results.length) return console.log("No hay ejecuciones locales guardadas.");
+      for (const result of results) {
+        console.log(result.id + " | " + result.projectId + " | " +
+          result.command + " | " + result.status + " | " + result.durationMs + " ms");
+      }
+      return;
+    }
+    throw new Error("Uso de dev no válido. Ejecuta troc help.");
   }
 
   if (group === "team") {
