@@ -95,7 +95,7 @@ export async function detectToolchain(projectId: string, directory: string): Pro
     const raw = await readFile(path.join(directory, "composer.json"), "utf8");
     const manifest = JSON.parse(raw) as PackageManifest;
     detected.push("PHP / Composer");
-    if (typeof manifest.scripts?.test === "string") {
+    if (manifest.scripts?.test !== undefined) {
       commands.push({
         tool: "composer",
         action: "test",
