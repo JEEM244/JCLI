@@ -90,7 +90,7 @@ function validateCommand(command: DevCommand): void {
 function childEnvironment(): NodeJS.ProcessEnv {
   const safe: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (/(API[_-]?KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE[_-]?KEY)/i.test(key)) continue;
+    if (/(API[_-]?KEY|ACCESS[_-]?KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE[_-]?KEY|AUTH)/i.test(key)) continue;
     safe[key] = value;
   }
   safe.CI = process.env.CI || "1";
