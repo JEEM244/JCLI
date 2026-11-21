@@ -67,3 +67,15 @@ test("rechaza una tarea cuyo estado no coincide con el archivo TXT", async () =>
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("rechaza bloques TXT sin cerrar", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "jcli-unclosed-task-"));
+  try {
+    const store = new TaskStore(directory);
+    await store.initialize();
+    await writeFile(path.join(directory, "pendientes.txt"), "[TASK]\\nid=OPEN-001\\ntitle=Abierta", "utf8");
+    await assert.rejects(() => store.list("pendientes"), /bloques \\[TASK\\] sin cerrar/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
