@@ -1,0 +1,8 @@
+{
+  "providers": [
+    { "id": "openai", "name": "OpenAI", "env": "OPENAI_API_KEY", "enabled": true },
+    { "id": "gemini", "name": "Google Gemini", "env": "GEMINI_API_KEY", "enabled": true },
+    { "id": "deepseek", "name": "DeepSeek", "env": "DEEPSEEK_API_KEY", "enabled": true },
+    { "id": "anthropic", "name": "Anthropic Claude", "env": "ANTHROPIC_API_KEY", "enabled": true }
+  ]
+}
