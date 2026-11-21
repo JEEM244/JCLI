@@ -114,3 +114,49 @@ test("los errores HTTP ocultan la clave si aparece en el mensaje", async () => {
     (error) => error.message.includes("[API_KEY]") && !error.message.includes("private-key")
   );
 });
+
+test("envía instrucciones de sistema con el formato correcto en cada proveedor", async () => {
+  const cases = [
+    {
+      provider: configs.openai,
+      key: "openai-secret",
+      assertBody: (body) => assert.equal(body.instructions, "Solo revisa el código.")
+    },
+    {
+      provider: configs.gemini,
+      key: "gemini-secret",
+      assertBody: (body) => assert.equal(body.systemInstruction.parts[0].text, "Solo revisa el código.")
+    },
+    {
+      provider: configs.deepseek,
+      key: "deepseek-secret",
+      assertBody: (body) => assert.deepEqual(body.messages.map((message) => message.role), ["system", "user"])
+    },
+    {
+      provider: configs.anthropic,
+      key: "claude-secret",
+      assertBody: (body) => assert.equal(body.system, "Solo revisa el código.")
+    }
+  ];
+
+  for (const entry of cases) {
+    const client = new ProviderClient(async (_url, init) => {
+      const body = JSON.parse(init.body);
+      entry.assertBody(body);
+      if (entry.provider.id === "openai") {
+        return new Response(JSON.stringify({ output_text: "OK", model: "mock" }), { status: 200 });
+      }
+      if (entry.provider.id === "gemini") {
+        return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "OK" }] } }] }), { status: 200 });
+      }
+      if (entry.provider.id === "deepseek") {
+        return new Response(JSON.stringify({ choices: [{ message: { content: "OK" } }] }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ content: [{ type: "text", text: "OK" }] }), { status: 200 });
+    });
+    const result = await client.generate(
+      entry.provider, entry.key, "Revisa", "mock-model", 64, 5000, "Solo revisa el código."
+    );
+    assert.equal(result.text, "OK");
+  }
+});
