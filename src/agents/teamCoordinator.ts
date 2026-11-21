@@ -133,7 +133,7 @@ export class TeamCoordinator {
 
   async run(taskId: string, requestedFiles: string[] = []): Promise<TeamRun> {
     if (process.env.JCLI_ENABLE_TEAM_RUNS !== "true") {
-      throw new Error("Las ejecuciones multiagente están desactivadas. No actives este ajuste sin revisar costos y contar con autorización adulta.");
+      throw new Error("JCLI_ENABLE_TEAM_RUNS está desactivado. No actives las ejecuciones multiagente sin revisar costos y contar con autorización adulta.");
     }
     if (process.env.JCLI_ENABLE_API_CALLS !== "true") {
       throw new Error("Las llamadas de generación están desactivadas. Revisa el ajuste JCLI_ENABLE_API_CALLS.");
