@@ -39,6 +39,10 @@ export class ProjectContextLoader {
       }
 
       const candidate = path.resolve(root, normalized);
+      const candidateRelative = path.relative(root, candidate);
+      if (!candidateRelative || candidateRelative.startsWith("..") || path.isAbsolute(candidateRelative)) {
+        throw new Error("La ruta seleccionada sale de la carpeta del proyecto: " + requested);
+      }
       let actual: string;
       try {
         actual = await realpath(candidate);
