@@ -33,7 +33,11 @@ export async function detectVSCode(): Promise<IdeInstallation> {
     process.env.ProgramFiles && path.join(process.env.ProgramFiles, "Microsoft VS Code", "Code.exe"),
     process.env["ProgramFiles(x86)"] && path.join(process.env["ProgramFiles(x86)"]!, "Microsoft VS Code", "Code.exe")
   ].filter((item): item is string => Boolean(item));
-  const executable = candidates.find(existsSync) ?? await findOnPath("code");
+  let executable = candidates.find(existsSync) ?? await findOnPath("code");
+  if (executable?.toLowerCase().endsWith("code.cmd")) {
+    const adjacentExe = path.resolve(path.dirname(executable), "..", "Code.exe");
+    if (existsSync(adjacentExe)) executable = adjacentExe;
+  }
   if (!executable) return { id: "vscode", name: "Visual Studio Code", installed: false, details: "No se encontró Code.exe ni el comando code en PATH." };
 
   let version: string | undefined;
