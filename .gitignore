@@ -6,3 +6,8 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# Datos locales y respuestas de agentes (pueden incluir información de proyectos)
+data/projects/projects.json
+data/agents/runs/
+data/history/*.jsonl
