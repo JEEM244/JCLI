@@ -12,7 +12,7 @@ function isSensitiveName(name: string): boolean {
   return lower === ".env" || lower.startsWith(".env.") ||
     lower === ".npmrc" || lower === ".pypirc" || lower === ".netrc" || lower === ".htpasswd" ||
     lower === "id_rsa" || lower === "id_ed25519" || lower === "credentials.json" ||
-    /^appsettings(\\..+)?\\.json$/.test(lower) || lower === "web.config" ||
+    /^appsettings(\..+)?\.json$/.test(lower) || lower === "web.config" ||
     lower.endsWith(".pem") || lower.endsWith(".key") || lower.endsWith(".pfx") ||
     lower.endsWith(".p12") || lower.endsWith(".tfstate") ||
     lower.includes("secret") || lower.includes("credential");
@@ -20,10 +20,10 @@ function isSensitiveName(name: string): boolean {
 
 function redactCredentialMaterial(source: string): string {
   return source
-    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, "[REDACTED PRIVATE KEY]")
-    .replace(/(\\b(?:api[_-]?key|client[_-]?secret|secret|password|access[_-]?token|refresh[_-]?token)\\b\\s*[:=]\\s*)(["'])([^"']{8,})\\2/gi, "$1$2[REDACTED]$2")
-    .replace(/(\\bBearer\\s+)[A-Za-z0-9._~+\\/-]{12,}/gi, "$1[REDACTED]")
-    .replace(/(^|\\n)([A-Z0-9_]*(?:API_KEY|ACCESS_TOKEN|CLIENT_SECRET|PASSWORD)\\s*=\\s*)([^\\r\\n#]{8,})/gi, "$1$2[REDACTED]");
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, "[REDACTED PRIVATE KEY]")
+    .replace(/(\b(?:api[_-]?key|client[_-]?secret|secret|password|access[_-]?token|refresh[_-]?token)\b\s*[:=]\s*)(["'])([^"']{8,})\2/gi, "$1$2[REDACTED]$2")
+    .replace(/(\bBearer\s+)[A-Za-z0-9._~+\/-]{12,}/gi, "$1[REDACTED]")
+    .replace(/(^|\n)([A-Z0-9_]*(?:API_KEY|ACCESS_TOKEN|CLIENT_SECRET|PASSWORD)\s*=\s*)([^\r\n#]{8,})/gi, "$1$2[REDACTED]");
 }
 
 export class ProjectContextLoader {
