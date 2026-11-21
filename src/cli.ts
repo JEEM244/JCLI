@@ -254,7 +254,8 @@ export async function runCli(args: string[]): Promise<void> {
     }
     if (action === "edit" && rest[0]) return editTask(rest[0]);
     if (action === "agents" && rest[0] && rest[1]) {
-      const requested = rest.slice(1).join("").split(",").map((id) => id.trim()).filter(Boolean);
+      const assignment = rest.slice(1).join("").trim();
+      const requested = assignment.toLowerCase() === "none" ? [] : assignment.split(",").map((id) => id.trim()).filter(Boolean);
       const available = await agentRegistry.list();
       if (requested.length > 4) throw new Error("Solo puedes asignar hasta 4 agentes por tarea.");
       for (const id of requested) {
@@ -447,7 +448,7 @@ export async function runCli(args: string[]): Promise<void> {
         console.log(agent.id + " — " + agent.name + " (" + agent.provider + ")");
         console.log("  " + agent.purpose + (agent.enabled ? "" : " [deshabilitado]"));
       }
-      console.log("\nMáximo por ejecución: 3 agentes.");
+      console.log("\nMáximo por ejecución: 4 agentes.");
       return;
     }
 
