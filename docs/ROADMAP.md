@@ -52,6 +52,8 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [x] Ejecución local con confirmación explícita, timeout y límite de salida.
 - [x] Registro local de logs y códigos de salida.
 - [x] Filtrado de variables sensibles al lanzar procesos.
+- [x] Generación confirmada de `.vscode/tasks.json` sin sobrescribir configuraciones existentes.
+- [x] Ejecuciones disponibles desde la CLI y desde las tareas de Visual Studio Code.
 - [ ] Lectura estructurada de errores por IDE y diagnóstico contextual.
 - [ ] Gestión de extensiones de VS Code y cargas de trabajo de Visual Studio.
 - [ ] Gestión de Git con confirmaciones antes de cambios importantes.
