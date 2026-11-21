@@ -138,11 +138,11 @@ export class TaskStore {
     if (!STATUSES.includes(task.status)) throw new Error("Estado de tarea no válido.");
     if (!PRIORITIES.includes(task.priority)) throw new Error("Prioridad de tarea no válida.");
     if (task.agentIds && (
-      task.agentIds.length > 3 ||
+      task.agentIds.length > 4 ||
       new Set(task.agentIds.map((id) => id.toLowerCase())).size !== task.agentIds.length ||
       task.agentIds.some((id) => !/^[a-z0-9][a-z0-9-]{0,39}$/i.test(id))
     )) {
-      throw new Error("La asignación debe contener hasta 3 IDs de agente válidos y sin repetir.");
+      throw new Error("La asignación debe contener hasta 4 IDs de agente válidos y sin repetir.");
     }
     if (task.projectId !== undefined && !task.projectId.trim()) {
       throw new Error("El ID del proyecto no puede estar vacío.");
