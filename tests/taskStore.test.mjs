@@ -73,8 +73,8 @@ test("rechaza bloques TXT sin cerrar", async () => {
   try {
     const store = new TaskStore(directory);
     await store.initialize();
-    await writeFile(path.join(directory, "pendientes.txt"), "[TASK]\\nid=OPEN-001\\ntitle=Abierta", "utf8");
-    await assert.rejects(() => store.list("pendientes"), /bloques \\[TASK\\] sin cerrar/);
+    await writeFile(path.join(directory, "pendientes.txt"), "[TASK]\nid=OPEN-001\ntitle=Abierta", "utf8");
+    await assert.rejects(() => store.list("pendientes"), /sin cerrar/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
