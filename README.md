@@ -59,6 +59,12 @@ Estados: `pendientes`, `en_proceso`, `completadas`, `archivadas`.
 
 Los proyectos se guardan en `data/projects/projects.json`. Puedes registrarlos desde la terminal con `troc project add`, consultar el registro con `troc project list` y abrir su carpeta con `troc project open <ID>`.
 
+- `troc project analyze <ID>`: cuenta archivos, identifica lenguajes, manifiestos y algunas tecnologías. Omite carpetas generadas y dependencias.
+- `troc project git <ID>`: muestra la rama y los cambios de Git sin modificar archivos.
+- `troc ide vscode detect` y `troc ide vs2026 detect`: buscan instalaciones de los IDE.
+- `troc ide vscode open <ID>`: abre la carpeta registrada en VS Code.
+- `troc ide vs2026 open <ID>`: abre la solución o proyecto .NET encontrado en Visual Studio 2026.
+
 ## Estado del proyecto
 
-Esta es la primera base funcional. Todavía no realiza llamadas a APIs de IA ni ejecuta acciones sobre Visual Studio. Las claves API se configuran por variables de entorno y nunca deben subirse al repositorio.
+La CLI ya puede analizar proyectos, consultar el estado de Git y detectar/abrir Visual Studio Code y Visual Studio 2026 cuando están instalados. Todavía no realiza llamadas a APIs de IA ni ejecuta compilaciones o pruebas desde los IDEs. Las claves API se configuran por variables de entorno y nunca deben subirse al repositorio.
