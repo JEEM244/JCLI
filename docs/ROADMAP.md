@@ -8,6 +8,9 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [x] Configuración inicial de proveedores de IA.
 - [x] Registro local de proyectos.
 - [x] Listar, registrar y abrir carpetas de proyectos.
+- [x] Analizar lenguajes, manifiestos y tecnologías comunes.
+- [x] Consultar rama y cambios de Git sin modificarlos.
+- [x] Detectar y abrir proyectos en Visual Studio Code y Visual Studio 2026.
 
 ## Próximas etapas
 
@@ -34,7 +37,9 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [ ] Integración con Visual Studio Code.
 - [ ] Detección de instalaciones y apertura de soluciones, proyectos y workspaces.
 - [ ] Gestión de Git, compilaciones y pruebas con confirmaciones cuando corresponda.
-- [ ] Gestión centralizada de proyectos y tecnologías.
+- [x] Gestión centralizada inicial de proyectos y tecnologías.
+- [ ] Compilación, ejecución de pruebas y lectura estructurada de errores.
+- [ ] Gestión de extensiones de VS Code y cargas de trabajo de Visual Studio.
 
 ## Principios
 
