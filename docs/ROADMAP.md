@@ -32,11 +32,16 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [ ] Streaming de respuestas y conversaciones persistentes.
 
 ## V0.4 — Coordinación multiagente
-- [ ] Coordinador de tareas y asignación de agentes.
-- [ ] Contexto compartido por proyecto, con selección explícita de archivos.
-- [ ] Revisión de resultados y registro de decisiones.
-- [ ] Aprobación explícita antes de acciones importantes o destructivas.
-- [ ] Reglas de privacidad y límites de contexto por agente.
+- [x] Coordinador secuencial de hasta 3 agentes por tarea.
+- [x] Asignación de agentes mediante la línea `agents=` en cada TXT.
+- [x] Perfiles configurables para planificación, propuesta de código, revisión y pruebas.
+- [x] Contexto de proyecto mediante archivos elegidos explícitamente.
+- [x] Bloqueo de rutas externas, secretos, dependencias y archivos de tamaño excesivo.
+- [x] Resultados persistidos y consultables localmente.
+- [x] Registro de aceptación o rechazo humano; no aplica cambios al proyecto.
+- [x] Doble activación explícita para llamadas multiagente.
+- [ ] Reanudación de ejecuciones interrumpidas y cancelación controlada.
+- [ ] Aprobación y aplicación asistida de parches revisables.
 
 ## V0.5 — Entorno de desarrollo
 - [x] Detección y apertura de proyectos en Visual Studio 2026.
