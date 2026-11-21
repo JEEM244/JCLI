@@ -47,6 +47,6 @@ export class DevRunStore {
       const item = await this.get(name.slice(0, -5));
       if (item) items.push(item);
     }
-    return items.reverse();
+    return items.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   }
 }
