@@ -1,8 +1,51 @@
 {
+  "limits": {
+    "maxRequestsPerDay": 20,
+    "maxInputCharacters": 12000,
+    "maxOutputTokens": 1024,
+    "requestTimeoutMs": 90000
+  },
   "providers": [
-    { "id": "openai", "name": "OpenAI", "env": "OPENAI_API_KEY", "enabled": true },
-    { "id": "gemini", "name": "Google Gemini", "env": "GEMINI_API_KEY", "enabled": true },
-    { "id": "deepseek", "name": "DeepSeek", "env": "DEEPSEEK_API_KEY", "enabled": true },
-    { "id": "anthropic", "name": "Anthropic Claude", "env": "ANTHROPIC_API_KEY", "enabled": true }
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "env": "OPENAI_API_KEY",
+      "modelEnv": "OPENAI_MODEL",
+      "defaultModel": "gpt-6.2-astra",
+      "endpoint": "https://api.openai.com/v1/responses",
+      "modelsEndpoint": "https://api.openai.com/v1/models",
+      "enabled": true
+    },
+    {
+      "id": "gemini",
+      "name": "Google Gemini",
+      "env": "GEMINI_API_KEY",
+      "modelEnv": "GEMINI_MODEL",
+      "defaultModel": "gemini-3.8-flash",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/models",
+      "modelsEndpoint": "https://generativelanguage.googleapis.com/v1beta/models",
+      "enabled": true
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "env": "DEEPSEEK_API_KEY",
+      "modelEnv": "DEEPSEEK_MODEL",
+      "defaultModel": "deepseek-flash",
+      "endpoint": "https://api.deepseek.com/chat/completions",
+      "modelsEndpoint": "https://api.deepseek.com/models",
+      "enabled": true
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic Claude",
+      "env": "ANTHROPIC_API_KEY",
+      "modelEnv": "ANTHROPIC_MODEL",
+      "defaultModel": "claude-sonnet-5-5",
+      "endpoint": "https://api.anthropic.com/v1/messages",
+      "modelsEndpoint": "https://api.anthropic.com/v1/models",
+      "apiVersion": "2026-10-21",
+      "enabled": true
+    }
   ]
 }
