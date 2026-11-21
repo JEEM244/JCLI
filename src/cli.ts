@@ -256,7 +256,7 @@ export async function runCli(args: string[]): Promise<void> {
     if (action === "agents" && rest[0] && rest[1]) {
       const requested = rest.slice(1).join("").split(",").map((id) => id.trim()).filter(Boolean);
       const available = await agentRegistry.list();
-      if (requested.length > 3) throw new Error("Solo puedes asignar hasta 3 agentes por tarea.");
+      if (requested.length > 4) throw new Error("Solo puedes asignar hasta 4 agentes por tarea.");
       for (const id of requested) {
         const agent = available.find((item) => item.id.toLowerCase() === id.toLowerCase());
         if (!agent) throw new Error("No existe el agente " + id + ".");
