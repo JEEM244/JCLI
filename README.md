@@ -98,7 +98,7 @@ JCLI detecta herramientas y propone comandos basándose en archivos del proyecto
 | Node.js | `package.json` | Scripts `build` y `test` declarados |
 | .NET / Visual Studio | `.sln`, `.slnx` o `.csproj` | `dotnet build`, `dotnet test` |
 | PHP / Composer | `composer.json` | `composer test`, si el script existe |
-| Python | `pyproject.toml` | `python -m pytest -q` |
+| Python | `pyproject.toml` | `py -m pytest -q` en Windows; `python3 -m pytest -q` en otros sistemas |
 | Go | `go.mod` | `go build ./...`, `go test ./...` |
 | Rust | `Cargo.toml` | `cargo build`, `cargo test` |
 
