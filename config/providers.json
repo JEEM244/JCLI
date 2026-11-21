@@ -1,8 +1,8 @@
 {
   "limits": {
-    "maxRequestsPerDay": 20,
-    "maxInputCharacters": 12000,
-    "maxOutputTokens": 1024,
+    "maxRequestsPerDay": 5,
+    "maxInputCharacters": 6000,
+    "maxOutputTokens": 512,
     "requestTimeoutMs": 90000
   },
   "providers": [
@@ -11,7 +11,7 @@
       "name": "OpenAI",
       "env": "OPENAI_API_KEY",
       "modelEnv": "OPENAI_MODEL",
-      "defaultModel": "gpt-6.2-astra",
+      "defaultModel": "gpt-5.4-mini",
       "endpoint": "https://api.openai.com/v1/responses",
       "modelsEndpoint": "https://api.openai.com/v1/models",
       "enabled": true
@@ -41,7 +41,7 @@
       "name": "Anthropic Claude",
       "env": "ANTHROPIC_API_KEY",
       "modelEnv": "ANTHROPIC_MODEL",
-      "defaultModel": "claude-sonnet-5-5",
+      "defaultModel": "claude-haiku-5-5",
       "endpoint": "https://api.anthropic.com/v1/messages",
       "modelsEndpoint": "https://api.anthropic.com/v1/models",
       "apiVersion": "2026-10-21",
