@@ -124,7 +124,9 @@ async function findSolution(directory: string, depth = 0): Promise<string | unde
     return undefined;
   }
   const solution = entries.find((entry) =>
-    entry.isFile() && /\.(sln|slnx|csproj)$/i.test(entry.name)
+    entry.isFile() && /\.(sln|slnx)$/i.test(entry.name)
+  ) ?? entries.find((entry) =>
+    entry.isFile() && /\.csproj$/i.test(entry.name)
   );
   if (solution) return path.join(directory, solution.name);
   for (const entry of entries) {
