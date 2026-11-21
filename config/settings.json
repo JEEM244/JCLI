@@ -1,0 +1,7 @@
+{
+  "appName": "JCLI",
+  "command": "troc",
+  "dataDirectory": "data",
+  "language": "es-MX",
+  "confirmDestructiveActions": true
+}
