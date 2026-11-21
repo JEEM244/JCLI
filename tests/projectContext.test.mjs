@@ -59,7 +59,7 @@ test("redacta credenciales comunes antes de devolver contexto al coordinador", a
   const directory = await mkdtemp(path.join(os.tmpdir(), "jcli-context-redact-"));
   try {
     await writeFile(path.join(directory, "settings.txt"),
-      'api_key = "VERY_PRIVATE_API_KEY_12345"\\nAuthorization: Bearer abcdefghijklmnopqrstuvwxyz123\\n', "utf8");
+      'api_key = "VERY_PRIVATE_API_KEY_12345"\nAuthorization: Bearer abcdefghijklmnopqrstuvwxyz123\n', "utf8");
     const loader = new ProjectContextLoader(limits);
     const [file] = await loader.load(directory, ["settings.txt"]);
     assert.doesNotMatch(file.content, /VERY_PRIVATE_API_KEY_12345/);
