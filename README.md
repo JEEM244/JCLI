@@ -100,7 +100,7 @@ Los nombres pueden cambiar y el acceso depende de cada cuenta. Consulta los mode
 
 - Las claves van únicamente en `.env`, que está excluido de Git. Nunca pegues una clave en un issue, commit o archivo TXT compartido.
 - `JCLI_ENABLE_API_CALLS=false` es el valor inicial. La generación no funciona hasta que se active explícitamente.
-- `JCLI_ENABLE_TEAM_RUNS=false` mantiene desactivadas las ejecuciones multiagente. Para usarlas se requieren ambas opciones activadas; una ejecución puede enviar hasta 3 solicitudes secuenciales.
+- `JCLI_ENABLE_TEAM_RUNS=false` mantiene desactivadas las ejecuciones multiagente. Para usarlas se requieren ambas opciones activadas; una ejecución puede enviar hasta 4 solicitudes secuenciales.
 - Antes de habilitar llamadas que pueden generar cargos, revisa el precio y la facturación del proveedor con tu madre, padre o tutor.
 - `troc providers test ID` consulta el catálogo de modelos para comprobar credenciales; no genera texto.
 - El límite local inicial es de 5 solicitudes por día, 6,000 caracteres de entrada, 512 tokens máximos de salida y 90 segundos por solicitud.
@@ -136,7 +136,7 @@ La línea `project=` es opcional. Estados: `pendientes`, `en_proceso`, `completa
 
 ## Coordinación multiagente
 
-Las asignaciones de agentes se guardan en los propios TXT con la línea opcional `agents=planner,reviewer`. Hay cuatro perfiles editables en `config/agents.json`: planificador, proponente de código, revisor y analista de pruebas. Cada tarea puede asignar hasta tres.
+Las asignaciones de agentes se guardan en los propios TXT con la línea opcional `agents=planner,reviewer`. Hay cuatro perfiles editables en `config/agents.json`: planificador, proponente de código, revisor y analista de pruebas. Cada tarea puede asignar hasta cuatro.
 
 - `troc team agents`: muestra los perfiles.
 - `troc tasks agents ID planner,reviewer`: asigna perfiles a una tarea. Usa `none` para quitar la asignación.
