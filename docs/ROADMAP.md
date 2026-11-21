@@ -47,7 +47,12 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [x] Detección y apertura de proyectos en Visual Studio 2026.
 - [x] Detección y apertura de carpetas en Visual Studio Code.
 - [x] Gestión centralizada inicial de proyectos y tecnologías.
-- [ ] Compilación, ejecución de pruebas y lectura estructurada de errores.
+- [x] Detección de toolchains Node.js, .NET, Composer, pytest, Go y Cargo.
+- [x] Planes build/test antes de ejecución.
+- [x] Ejecución local con confirmación explícita, timeout y límite de salida.
+- [x] Registro local de logs y códigos de salida.
+- [x] Filtrado de variables sensibles al lanzar procesos.
+- [ ] Lectura estructurada de errores por IDE y diagnóstico contextual.
 - [ ] Gestión de extensiones de VS Code y cargas de trabajo de Visual Studio.
 - [ ] Gestión de Git con confirmaciones antes de cambios importantes.
 
