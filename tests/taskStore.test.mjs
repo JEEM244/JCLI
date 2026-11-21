@@ -91,13 +91,13 @@ test("guarda la asignación de agentes en el TXT", async () => {
       description: "",
       priority: "media",
       created: "2026-11-20",
-      agentIds: ["planner", "reviewer"]
+      agentIds: ["planner", "implementer", "reviewer", "tester"]
     });
     const txt = await readFile(path.join(directory, "pendientes.txt"), "utf8");
-    assert.match(txt, /agents=planner,reviewer/);
-    assert.deepEqual((await store.get("TEAM-001")).agentIds, ["planner", "reviewer"]);
+    assert.match(txt, /agents=planner,implementer,reviewer,tester/);
+    assert.deepEqual((await store.get("TEAM-001")).agentIds, ["planner", "implementer", "reviewer", "tester"]);
     await assert.rejects(
-      () => store.update("TEAM-001", { agentIds: ["planner", "reviewer", "tester", "extra"] }),
+      () => store.update("TEAM-001", { agentIds: ["planner", "implementer", "reviewer", "tester", "extra"] }),
       /hasta 3 IDs/
     );
   } finally {
