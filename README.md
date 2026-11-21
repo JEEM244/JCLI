@@ -14,8 +14,9 @@ Centro de control local para proyectos, tareas e integraciones con herramientas 
 
 ```powershell
 npm install
+Copy-Item .env.example .env
+notepad .env
 npm run dev -- init
-npm run dev -- tasks list
 ```
 
 Para compilar y usar el comando global:
@@ -26,10 +27,12 @@ npm link
 troc
 ```
 
-## Comandos principales
+## Comandos
 
 ```powershell
 troc init
+
+# Tareas
 troc tasks list
 troc tasks list pendientes --project WEB --priority alta
 troc tasks add
@@ -40,22 +43,65 @@ troc tasks link WEB-001 WEB
 troc tasks unlink WEB-001
 troc tasks done WEB-001
 troc tasks move WEB-001 en_proceso
-troc history
-troc history 50
 
+# Proyectos
 troc project list
 troc project add
 troc project open WEB
 troc project analyze WEB
 troc project git WEB
 
+# IDEs
 troc ide vscode detect
 troc ide vs2026 detect
 troc ide vscode open WEB
 troc ide vs2026 open WEB
 
+# Proveedores de IA
 troc providers list
 troc providers status
+troc providers test openai
+troc providers models gemini
+
+# Generación y consumo local
+troc ai ask deepseek "Resume este fragmento de código"
+troc ai usage
+troc ai usage 50
+
+# Historial
+troc history
+troc history 50
+```
+
+## Conectores de IA
+
+JCLI implementa llamadas HTTP directas a las APIs oficiales de OpenAI Responses, Gemini generateContent, DeepSeek Chat Completions y Anthropic Messages. No requiere SDKs adicionales: utiliza `fetch` de Node.js.
+
+Cada proveedor tiene un modelo predeterminado editable mediante variables de entorno:
+
+| Proveedor | Variable de modelo | Predeterminado |
+|---|---|---|
+| OpenAI | `OPENAI_MODEL` | `gpt-5.4-mini` |
+| Gemini | `GEMINI_MODEL` | `gemini-3.8-flash` |
+| DeepSeek | `DEEPSEEK_MODEL` | `deepseek-flash` |
+| Claude | `ANTHROPIC_MODEL` | `claude-haiku-5-5` |
+
+Los nombres pueden cambiar y el acceso depende de cada cuenta. Consulta los modelos disponibles con `troc providers models ID`. Si el modelo configurado no está disponible para tu clave, cambia la variable correspondiente en `.env`.
+
+### Seguridad y costos
+
+- Las claves van únicamente en `.env`, que está excluido de Git. Nunca pegues una clave en un issue, commit o archivo TXT compartido.
+- `JCLI_ENABLE_API_CALLS=false` es el valor inicial. La generación no funciona hasta que se active explícitamente.
+- Antes de habilitar llamadas que pueden generar cargos, revisa el precio y la facturación del proveedor con tu madre, padre o tutor.
+- `troc providers test ID` consulta el catálogo de modelos para comprobar credenciales; no genera texto.
+- El límite local inicial es de 5 solicitudes por día, 6,000 caracteres de entrada, 512 tokens máximos de salida y 90 segundos por solicitud.
+- Estos límites son una protección local, no un tope monetario ni un sustituto de los límites de gasto de la cuenta del proveedor.
+- `troc ai usage` muestra intentos registrados y tokens reportados por la API. No calcula importes ni garantiza que todos los proveedores reporten el uso con el mismo detalle.
+
+Para activar generación después de revisar lo anterior, cambia en `.env`:
+
+```dotenv
+JCLI_ENABLE_API_CALLS=true
 ```
 
 ## Tareas TXT
@@ -74,24 +120,16 @@ project=WEB
 [/TASK]
 ```
 
-La línea `project=` es opcional, por lo que los TXT creados con versiones anteriores siguen siendo compatibles. Los estados disponibles son: `pendientes`, `en_proceso`, `completadas` y `archivadas`. Si un bloque tiene campos obligatorios inválidos o declara un estado distinto al archivo donde está guardado, JCLI muestra un error para que puedas corregirlo con Bloc de notas.
+La línea `project=` es opcional. Estados: `pendientes`, `en_proceso`, `completadas` y `archivadas`. Los filtros de `tasks list` incluyen `--project ID`, `--priority nivel` y `--search texto`.
 
-Los filtros disponibles para `tasks list` son `--project ID`, `--priority nivel` y `--search texto`. La búsqueda `tasks search` consulta ID, título, descripción, prioridad, estado y proyecto.
+## Historial y uso
 
-## Historial
-
-Las operaciones se guardan localmente en `data/history/events.jsonl`. El archivo usa JSON Lines: cada línea representa un evento independiente y puede consultarse con `troc history`. Registra creación y edición de tareas, cambios de estado, asociación/desasociación de proyectos y registro de proyectos.
+Las operaciones generales se guardan en `data/history/events.jsonl`. Las solicitudes a proveedores y sus métricas de uso se guardan por separado en `data/history/ai-usage.jsonl`.
 
 ## Registro de proyectos e IDEs
 
-Los proyectos se guardan en `data/projects/projects.json`. Puedes registrarlos desde la terminal con `troc project add`.
-
-- `troc project analyze ID`: cuenta archivos, identifica lenguajes, manifiestos y algunas tecnologías.
-- `troc project git ID`: muestra la rama y los cambios de Git sin modificarlos.
-- `troc ide vscode detect` y `troc ide vs2026 detect`: buscan instalaciones de los IDE.
-- `troc ide vscode open ID`: abre la carpeta registrada en Visual Studio Code.
-- `troc ide vs2026 open ID`: abre una solución o proyecto .NET encontrado en Visual Studio 2026.
+Los proyectos se guardan en `data/projects/projects.json`. `troc project analyze ID` cuenta archivos e identifica lenguajes, manifiestos y algunas tecnologías. `troc project git ID` muestra la rama y los cambios de Git sin modificarlos. JCLI puede detectar y abrir Visual Studio Code y Visual Studio 2026.
 
 ## Estado actual y límites
 
-JCLI administra tareas TXT, registro de proyectos, asociación tarea-proyecto, historial local, análisis básico de proyectos, consulta de Git y apertura de Visual Studio Code y Visual Studio 2026. Todavía no realiza llamadas a APIs de IA ni ejecuta compilaciones o pruebas desde los IDEs. La presencia de una clave de API en el entorno no confirma que sea válida ni que tenga saldo. Nunca subas `.env`, claves ni tokens al repositorio.
+JCLI administra tareas, proyectos y conexiones directas de generación con los cuatro proveedores configurados. La etapa actual no incluye todavía coordinación multiagente, conversación persistente, lectura automática de todo un repositorio por IA, streaming de respuestas ni cálculos de costos. Los cambios de archivos, Git y compilaciones desde IDEs siguen requiriendo etapas posteriores.
