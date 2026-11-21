@@ -27,7 +27,12 @@ export type HistoryAction =
   | "patch.approved"
   | "patch.rejected"
   | "patch.applied"
-  | "patch.rolled_back";
+  | "patch.rolled_back"
+  | "git.staged"
+  | "git.unstaged"
+  | "git.committed"
+  | "git.branch_created"
+  | "git.branch_switched";
 
 export interface HistoryEntry {
   id: string;

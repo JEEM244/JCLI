@@ -17,6 +17,7 @@ import { DevRunStore } from "./dev/runStore.js";
 import { PatchService } from "./patches/patchService.js";
 import { PatchStore } from "./patches/patchStore.js";
 import { renderPatchDiff } from "./patches/patchDiff.js";
+import { GitService } from "./git/gitService.js";
 import { analyzeProject } from "./projects/projectAnalyzer.js";
 import { inspectGit } from "./projects/gitInspector.js";
 import { detectVSCode, detectVisualStudio2026 } from "./integrations/ide/detector.js";
@@ -34,6 +35,7 @@ const devRuns = new DevRunStore();
 const dev = new DevService(projects, undefined, devRuns, history);
 const patchStore = new PatchStore();
 const patchService = new PatchService(projects, patchStore, history);
+const gitService = new GitService(projects, history);
 const statuses: TaskStatus[] = ["pendientes", "en_proceso", "completadas", "archivadas"];
 const priorities: TaskPriority[] = ["baja", "media", "alta", "urgente"];
 
@@ -72,6 +74,15 @@ function help(): void {
     "  troc patch reject <ID>",
     "  troc patch apply <ID> --confirm",
     "  troc patch rollback <ID> --confirm",
+    "  troc git status <PROYECTO>",
+    "  troc git diff <PROYECTO> [--staged] [ARCHIVO]",
+    "  troc git stage <PROYECTO> <ARCHIVO...> --confirm",
+    "  troc git unstage <PROYECTO> <ARCHIVO...> --confirm",
+    "  troc git commit <PROYECTO> <mensaje> --confirm",
+    "  troc git log <PROYECTO> [limite]",
+    "  troc git branch list <PROYECTO>",
+    "  troc git branch create <PROYECTO> <NOMBRE> --confirm",
+    "  troc git branch switch <PROYECTO> <NOMBRE> --confirm",
     "  troc history [limite]",
     "  troc ide vscode detect",
     "  troc ide vs2026 detect",
@@ -370,6 +381,86 @@ export async function runCli(args: string[]): Promise<void> {
       return;
     }
     throw new Error("Uso de proyectos no válido. Ejecuta troc help.");
+  }
+
+
+  if (group === "git") {
+    if (action === "status" && rest.length === 1) {
+      const status = await gitService.inspect(rest[0]);
+      console.log("Repositorio: " + status.projectId);
+      console.log("Rama: " + status.branch);
+      console.log("Estado: " + status.summary);
+      if (!status.changes.length) console.log("Árbol de trabajo limpio.");
+      for (const change of status.changes) console.log("  " + change);
+      return;
+    }
+    if (action === "diff" && rest.length >= 1 && rest.length <= 3) {
+      const projectId = rest[0];
+      const options = rest.slice(1);
+      const staged = options.includes("--staged");
+      const paths = options.filter((item) => item !== "--staged");
+      if (paths.length > 1 || options.some((item) => item.startsWith("--") && item !== "--staged")) {
+        throw new Error("Usa troc git diff <PROYECTO> [--staged] [ARCHIVO].");
+      }
+      const diff = await gitService.diff(projectId, staged, paths[0]);
+      console.log(diff);
+      return;
+    }
+    if (action === "stage" || action === "unstage") {
+      if (rest.length < 3 || rest[rest.length - 1] !== "--confirm") {
+        throw new Error("Esta operación requiere uno o más archivos y --confirm.");
+      }
+      const projectId = rest[0];
+      const files = rest.slice(1, -1);
+      const result = action === "stage"
+        ? await gitService.stage(projectId, files, true)
+        : await gitService.unstage(projectId, files, true);
+      console.log(action === "stage" ? "Archivos preparados." : "Archivos retirados del área de preparación.");
+      console.log("Comando: " + result.command);
+      return;
+    }
+    if (action === "commit") {
+      if (rest.length < 3 || rest[rest.length - 1] !== "--confirm") {
+        throw new Error("Usa troc git commit <PROYECTO> <mensaje> --confirm.");
+      }
+      const projectId = rest[0];
+      const message = rest.slice(1, -1).join(" ");
+      const commit = await gitService.commit(projectId, message, true);
+      console.log("Commit creado: " + commit.hash);
+      console.log("Mensaje: " + commit.subject);
+      console.log("Autor: " + commit.author);
+      return;
+    }
+    if (action === "log" && rest.length >= 1 && rest.length <= 2) {
+      const limit = rest[1] ? Number(rest[1]) : 10;
+      if (!Number.isInteger(limit) || limit < 1) throw new Error("El límite debe ser un entero positivo.");
+      const commits = await gitService.log(rest[0], limit);
+      if (!commits.length) return console.log("No hay commits en este repositorio.");
+      for (const commit of commits) {
+        console.log(commit.hash.slice(0, 10) + " | " + commit.date + " | " + commit.subject);
+      }
+      return;
+    }
+    if (action === "branch" && rest.length >= 2) {
+      const [branchAction, projectId, branchName, confirmation] = rest;
+      if (branchAction === "list" && rest.length === 2) {
+        const branches = await gitService.listBranches(projectId);
+        if (!branches.length) return console.log("No hay ramas locales.");
+        for (const branch of branches) console.log("  " + branch);
+        return;
+      }
+      if (branchAction === "create" && branchName && rest.length === 4 && confirmation === "--confirm") {
+        await gitService.createBranch(projectId, branchName, true);
+        console.log("Rama creada y activada: " + branchName);
+        return;
+      }
+      if (branchAction === "switch" && branchName && rest.length === 4 && confirmation === "--confirm") {
+        await gitService.switchBranch(projectId, branchName, true);
+        console.log("Rama activada: " + branchName);
+        return;
+      }
+    }
+    throw new Error("Uso de Git no válido. Ejecuta troc help.");
   }
 
   if (group === "history") {

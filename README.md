@@ -84,6 +84,18 @@ troc team run WEB-001 --file README.md
 troc team show ID_EJECUCION
 troc team decide ID_EJECUCION accept
 
+# Git local
+troc git status WEB
+troc git diff WEB
+troc git diff WEB --staged
+troc git stage WEB src/app.ts --confirm
+troc git unstage WEB src/app.ts --confirm
+troc git commit WEB "Actualiza el panel" --confirm
+troc git log WEB 10
+troc git branch list WEB
+troc git branch create WEB feature/panel --confirm
+troc git branch switch WEB main --confirm
+
 # Historial
 troc history
 troc history 50
@@ -202,8 +214,27 @@ troc patch reject ID_PROPUESTA
 
 Los agentes de IA siguen generando propuestas, no editan archivos directamente. Para usar una propuesta de un agente, prepara el archivo candidato, revísalo con `troc patch show` y sigue el flujo de aprobación.
 
-## Estado actual
+## V0.7 — Git local
 
-Versión actual: **0.6.0**.
+JCLI ahora puede consultar y administrar operaciones Git locales en proyectos registrados:
 
-JCLI incluye gestión de tareas y proyectos, conectores de IA, coordinación multiagente, detección y ejecución controlada de build/test, integración inicial con VS Code y Visual Studio 2026, y aplicación asistida de cambios con revisión, respaldo y reversión.
+- `troc git status ID`: rama y archivos modificados, preparados o sin seguimiento.
+- `troc git diff ID [--staged] [ARCHIVO]`: diferencias del área de trabajo o del staging.
+- `troc git stage ID ARCHIVO... --confirm`: prepara hasta 20 archivos indicados explícitamente.
+- `troc git unstage ID ARCHIVO... --confirm`: retira archivos del staging sin borrar sus cambios.
+- `troc git commit ID "mensaje" --confirm`: crea un commit cuando ya hay cambios preparados.
+- `troc git log ID [limite]`: consulta los commits recientes.
+- `troc git branch list ID`: lista ramas locales.
+- `troc git branch create ID RAMA --confirm`: crea y activa una rama local.
+- `troc git branch switch ID RAMA --confirm`: cambia a una rama local existente.
+
+### Límites y seguridad
+
+- No acepta comandos Git libres ni construye comandos a través de una shell.
+- Las rutas se validan como archivos individuales y se bloquean rutas externas, enlaces simbólicos, `.git`, dependencias, carpetas generadas y nombres típicos de secretos.
+- Las operaciones de staging, commits y cambios de rama requieren `--confirm`.
+- `unstage` no descarta cambios del directorio de trabajo. No se implementan `reset --hard`, `clean`, `checkout` destructivo ni `push` remoto.
+- Git puede ejecutar filtros configurados al preparar archivos y hooks al crear commits. Revisa la configuración del repositorio antes de confirmar esas operaciones.
+- Cada operación de escritura registra un evento en el historial local.
+
+Versión actual: **0.7.0**.

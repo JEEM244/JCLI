@@ -69,6 +69,19 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [x] Revertir solo cuando el archivo no haya cambiado después de la aplicación.
 - [x] Guardar el estado de propuestas y decisiones en el almacenamiento local.
 
+## V0.7 — Git local
+- [x] Consultar rama y estado de archivos del repositorio.
+- [x] Mostrar diferencias del área de trabajo y del staging.
+- [x] Preparar archivos individuales seleccionados explícitamente.
+- [x] Retirar archivos del staging sin descartar cambios locales.
+- [x] Crear commits a partir de cambios ya preparados.
+- [x] Consultar historial local de commits.
+- [x] Listar, crear y cambiar ramas locales.
+- [x] Validar rutas y nombres de rama y evitar comandos libres.
+- [x] Exigir confirmación para operaciones que modifican el repositorio.
+- [ ] Comparación visual enriquecida entre ramas y commits.
+- [ ] Integración remota con revisión explícita de `push` y autenticación.
+
 ## Principios
 
 - Priorizar Windows 11 y PowerShell 7.
