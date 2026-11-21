@@ -79,3 +79,28 @@ test("rechaza bloques TXT sin cerrar", async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("guarda la asignación de agentes en el TXT", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "jcli-assigned-agents-"));
+  try {
+    const store = new TaskStore(directory);
+    await store.initialize();
+    await store.add({
+      id: "TEAM-001",
+      title: "Coordinar tarea",
+      description: "",
+      priority: "media",
+      created: "2026-11-20",
+      agentIds: ["planner", "reviewer"]
+    });
+    const txt = await readFile(path.join(directory, "pendientes.txt"), "utf8");
+    assert.match(txt, /agents=planner,reviewer/);
+    assert.deepEqual((await store.get("TEAM-001")).agentIds, ["planner", "reviewer"]);
+    await assert.rejects(
+      () => store.update("TEAM-001", { agentIds: ["planner", "reviewer", "tester", "extra"] }),
+      /hasta 3 IDs/
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
