@@ -8,6 +8,12 @@ interface ProviderFile {
   providers: ProviderConfig[];
 }
 
+export interface AIAskOptions {
+  systemPrompt?: string;
+  model?: string;
+  maxOutputTokens?: number;
+}
+
 function positiveInteger(value: string | undefined, fallback: number): number {
   if (!value) return fallback;
   const parsed = Number(value);
@@ -54,14 +60,15 @@ export class AIService {
     return this.client.listModels(provider, key, settings.requestTimeoutMs);
   }
 
-  async ask(id: string, prompt: string): Promise<AIResponse> {
+  async ask(id: string, prompt: string, options: AIAskOptions = {}): Promise<AIResponse> {
     if (process.env.JCLI_ENABLE_API_CALLS !== "true") {
       throw new Error("Las llamadas de generación están desactivadas. Revisa los posibles cargos y, con autorización de tu madre, padre o tutor, activa JCLI_ENABLE_API_CALLS=true en .env.");
     }
     const { provider, key, settings } = await this.provider(id);
+    const systemPrompt = options.systemPrompt?.trim() ?? "";
     if (!prompt.trim()) throw new Error("Escribe una instrucción para la IA.");
-    if (prompt.length > settings.maxInputCharacters) {
-      throw new Error("El texto supera el límite local de " + settings.maxInputCharacters + " caracteres.");
+    if (prompt.length + systemPrompt.length > settings.maxInputCharacters) {
+      throw new Error("La instrucción y el contexto superan el límite local de " + settings.maxInputCharacters + " caracteres.");
     }
 
     const totals = await this.usage.totalsToday();
@@ -70,14 +77,19 @@ export class AIService {
         " solicitudes al día (UTC). Puedes cambiarlo en .env.");
     }
 
-    const model = process.env[provider.modelEnv]?.trim() || provider.defaultModel;
+    const model = options.model?.trim() || process.env[provider.modelEnv]?.trim() || provider.defaultModel;
+    const requestedTokens = options.maxOutputTokens ?? settings.maxOutputTokens;
+    if (!Number.isSafeInteger(requestedTokens) || requestedTokens < 1) {
+      throw new Error("El límite de salida solicitado no es válido.");
+    }
+    const maxOutputTokens = Math.min(requestedTokens, settings.maxOutputTokens);
     const started = Date.now();
     let response: AIResponse | undefined;
     let failure: unknown;
 
     try {
       response = await this.client.generate(
-        provider, key, prompt, model, settings.maxOutputTokens, settings.requestTimeoutMs
+        provider, key, prompt, model, maxOutputTokens, settings.requestTimeoutMs, systemPrompt
       );
       return response;
     } catch (error) {
@@ -89,7 +101,7 @@ export class AIService {
         provider: provider.id as ProviderId,
         model,
         result: response ? "success" : "error",
-        inputCharacters: prompt.length,
+        inputCharacters: prompt.length + systemPrompt.length,
         inputTokens: response?.usage.inputTokens,
         outputTokens: response?.usage.outputTokens,
         durationMs: Date.now() - started
