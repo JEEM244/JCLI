@@ -176,7 +176,8 @@ export class ProviderClient {
     prompt: string,
     model: string,
     maxOutputTokens: number,
-    timeoutMs: number
+    timeoutMs: number,
+    systemPrompt = ""
   ): Promise<AIResponse> {
     let url = provider.endpoint;
     let body: JsonObject;
@@ -185,18 +186,23 @@ export class ProviderClient {
       body = {
         model,
         input: prompt,
-        max_output_tokens: maxOutputTokens
+        max_output_tokens: maxOutputTokens,
+        ...(systemPrompt ? { instructions: systemPrompt } : {})
       };
     } else if (provider.id === "gemini") {
       url = provider.endpoint.replace(/\/$/, "") + "/" + encodeURIComponent(model) + ":generateContent";
       body = {
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens }
+        generationConfig: { maxOutputTokens },
+        ...(systemPrompt ? { systemInstruction: { parts: [{ text: systemPrompt }] } } : {})
       };
     } else if (provider.id === "deepseek") {
       body = {
         model,
-        messages: [{ role: "user", content: prompt }],
+        messages: [
+          ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
+          { role: "user", content: prompt }
+        ],
         max_tokens: maxOutputTokens,
         stream: false
       };
@@ -204,6 +210,7 @@ export class ProviderClient {
       body = {
         model,
         max_tokens: maxOutputTokens,
+        ...(systemPrompt ? { system: systemPrompt } : {}),
         messages: [{ role: "user", content: prompt }]
       };
     }
