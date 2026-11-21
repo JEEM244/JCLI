@@ -1,0 +1,8 @@
+[TASK]
+id=JCLI-001
+title=Explorar el repositorio y definir la arquitectura
+description=Revisar la estructura inicial y preparar las siguientes etapas de desarrollo.
+status=pendientes
+priority=alta
+created=2026-11-20
+[/TASK]
