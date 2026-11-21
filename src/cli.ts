@@ -9,6 +9,9 @@ import { ProjectStore } from "./projects/projectStore.js";
 import { HistoryStore } from "./history/historyStore.js";
 import { AIService } from "./ai/aiService.js";
 import { AIUsageStore } from "./ai/usageStore.js";
+import { AgentRegistry } from "./agents/agentRegistry.js";
+import { TeamRunStore } from "./agents/runStore.js";
+import { TeamCoordinator } from "./agents/teamCoordinator.js";
 import { analyzeProject } from "./projects/projectAnalyzer.js";
 import { inspectGit } from "./projects/gitInspector.js";
 import { detectVSCode, detectVisualStudio2026 } from "./integrations/ide/detector.js";
@@ -19,6 +22,9 @@ const projects = new ProjectStore();
 const history = new HistoryStore();
 const ai = new AIService();
 const aiUsage = new AIUsageStore();
+const agentRegistry = new AgentRegistry();
+const teamRuns = new TeamRunStore();
+const team = new TeamCoordinator(store, projects, ai, agentRegistry, teamRuns, history);
 const statuses: TaskStatus[] = ["pendientes", "en_proceso", "completadas", "archivadas"];
 const priorities: TaskPriority[] = ["baja", "media", "alta", "urgente"];
 
@@ -36,6 +42,7 @@ function help(): void {
     "  troc tasks edit <ID>",
     "  troc tasks link <ID_TAREA> <ID_PROYECTO>",
     "  troc tasks unlink <ID_TAREA>",
+    "  troc tasks agents <ID_TAREA> <agente1,agente2>",
     "  troc tasks done <ID>",
     "  troc tasks move <ID> <estado>",
     "  troc project list",
@@ -54,6 +61,11 @@ function help(): void {
     "  troc providers models <proveedor>",
     "  troc ai ask <proveedor> <instrucción>",
     "  troc ai usage [límite]",
+    "  troc team agents",
+    "  troc team plan <ID_TAREA> [--file ruta]",
+    "  troc team run <ID_TAREA> [--file ruta]",
+    "  troc team show <ID_EJECUCIÓN>",
+    "  troc team decide <ID_EJECUCIÓN> <accept|reject>",
     "",
     "Estados: " + statuses.join(", "),
     "Prioridades: " + priorities.join(", ")
@@ -240,6 +252,23 @@ export async function runCli(args: string[]): Promise<void> {
       return;
     }
     if (action === "edit" && rest[0]) return editTask(rest[0]);
+    if (action === "agents" && rest[0] && rest[1]) {
+      const requested = rest.slice(1).join("").split(",").map((id) => id.trim()).filter(Boolean);
+      const available = await agentRegistry.list();
+      if (requested.length > 3) throw new Error("Solo puedes asignar hasta 3 agentes por tarea.");
+      for (const id of requested) {
+        const agent = available.find((item) => item.id.toLowerCase() === id.toLowerCase());
+        if (!agent) throw new Error("No existe el agente " + id + ".");
+        if (!agent.enabled) throw new Error("El agente " + id + " está deshabilitado.");
+      }
+      const updated = await store.update(rest[0], { agentIds: requested });
+      await history.record("task.agents_assigned", updated.id,
+        requested.length ? "Agentes asignados: " + requested.join(", ") : "Se retiraron los agentes asignados");
+      console.log(requested.length
+        ? "Agentes asignados a " + updated.id + ": " + requested.join(", ")
+        : "Se retiró la asignación de agentes de " + updated.id + ".");
+      return;
+    }
     if (action === "link" && rest[0] && rest[1]) {
       const project = await projects.get(rest[1]);
       if (!project) throw new Error("No existe el proyecto " + rest[1] + ".");
@@ -408,6 +437,76 @@ export async function runCli(args: string[]): Promise<void> {
       return;
     }
     throw new Error("Uso de IA no válido. Ejecuta troc help.");
+  }
+
+  if (group === "team") {
+    if (action === "agents") {
+      const agents = await agentRegistry.list();
+      for (const agent of agents) {
+        console.log(agent.id + " — " + agent.name + " (" + agent.provider + ")");
+        console.log("  " + agent.purpose + (agent.enabled ? "" : " [deshabilitado]"));
+      }
+      console.log("\nMáximo por ejecución: 3 agentes.");
+      return;
+    }
+
+    const taskId = rest[0];
+    const filePaths: string[] = [];
+    if (action === "plan" || action === "run") {
+      if (!taskId) throw new Error("Indica el ID de la tarea.");
+      for (let index = 1; index < rest.length; index++) {
+        if (rest[index] !== "--file" || !rest[index + 1] || rest[index + 1].startsWith("--")) {
+          throw new Error("Usa --file seguido de una ruta relativa al proyecto.");
+        }
+        filePaths.push(rest[index + 1]);
+        index++;
+      }
+      const plan = await team.plan(taskId, filePaths);
+      console.log("Plan de equipo para " + plan.taskId + " — " + plan.taskTitle);
+      if (plan.projectName) console.log("Proyecto: " + plan.projectName);
+      console.log("Agentes (" + plan.estimatedRequests + " solicitudes estimadas):");
+      for (const agent of plan.agents) console.log("  " + agent.id + " — " + agent.name + " [" + agent.provider + "]");
+      console.log("Archivos enviados: " + (plan.files.join(", ") || "ninguno"));
+      if (action === "plan") {
+        console.log("\nEste comando solo prepara el plan; no contacta proveedores.");
+        return;
+      }
+      console.log("\nLos agentes solo devolverán propuestas. No se escribirán archivos del proyecto.");
+      const run = await team.run(taskId, filePaths);
+      console.log("\nEjecución: " + run.id);
+      console.log("Estado: " + run.status);
+      for (const result of run.agents) {
+        console.log("\n[" + result.agentId + "] " + result.status +
+          (result.model ? " — " + result.model : ""));
+        if (result.output) console.log(result.output);
+        if (result.error) console.log("Error: " + result.error);
+      }
+      console.log("\nRevisa el resultado con: troc team show " + run.id);
+      return;
+    }
+    if (action === "show" && taskId) {
+      const run = await team.getRun(taskId);
+      if (!run) throw new Error("No se encontró la ejecución " + taskId + ".");
+      console.log("Ejecución " + run.id + " — tarea " + run.taskId);
+      console.log("Estado: " + run.status);
+      console.log("Archivos de contexto: " + (run.files.join(", ") || "ninguno"));
+      console.log("Decisión: " + (run.decision ?? "pendiente de revisión"));
+      for (const result of run.agents) {
+        console.log("\n[" + result.agentId + "] " + result.status);
+        if (result.output) console.log(result.output);
+        if (result.error) console.log("Error: " + result.error);
+      }
+      return;
+    }
+    if (action === "decide" && rest[0] && rest[1]) {
+      const decision = rest[1] === "accept" ? "accepted" :
+        rest[1] === "reject" ? "rejected" : undefined;
+      if (!decision) throw new Error("La decisión debe ser accept o reject.");
+      await team.decide(rest[0], decision);
+      console.log("Decisión registrada. No se modificaron archivos del proyecto.");
+      return;
+    }
+    throw new Error("Uso de team no válido. Ejecuta troc help.");
   }
 
   if (group === "providers") {
