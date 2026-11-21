@@ -7,6 +7,8 @@ import path from "node:path";
 import { TaskStore } from "./tasks/taskStore.js";
 import { ProjectStore } from "./projects/projectStore.js";
 import { HistoryStore } from "./history/historyStore.js";
+import { AIService } from "./ai/aiService.js";
+import { AIUsageStore } from "./ai/usageStore.js";
 import { analyzeProject } from "./projects/projectAnalyzer.js";
 import { inspectGit } from "./projects/gitInspector.js";
 import { detectVSCode, detectVisualStudio2026 } from "./integrations/ide/detector.js";
@@ -15,6 +17,8 @@ import type { Task, TaskPriority, TaskStatus } from "./types.js";
 const store = new TaskStore();
 const projects = new ProjectStore();
 const history = new HistoryStore();
+const ai = new AIService();
+const aiUsage = new AIUsageStore();
 const statuses: TaskStatus[] = ["pendientes", "en_proceso", "completadas", "archivadas"];
 const priorities: TaskPriority[] = ["baja", "media", "alta", "urgente"];
 
@@ -46,6 +50,10 @@ function help(): void {
     "  troc ide vs2026 open <ID>",
     "  troc providers list",
     "  troc providers status",
+    "  troc providers test <proveedor>",
+    "  troc providers models <proveedor>",
+    "  troc ai ask <proveedor> <instrucción>",
+    "  troc ai usage [límite]",
     "",
     "Estados: " + statuses.join(", "),
     "Prioridades: " + priorities.join(", ")
@@ -364,6 +372,44 @@ export async function runCli(args: string[]): Promise<void> {
     throw new Error("Uso de IDE no válido. Ejecuta troc help.");
   }
 
+  if (group === "ai") {
+    if (action === "ask" && rest.length >= 2) {
+      const providerId = rest[0];
+      const prompt = rest.slice(1).join(" ");
+      console.log("Consultando " + providerId + "...");
+      const result = await ai.ask(providerId, prompt);
+      console.log("\n[" + result.provider + " · " + result.model + "]\n");
+      console.log(result.text);
+      if (result.usage.inputTokens !== undefined || result.usage.outputTokens !== undefined) {
+        console.log("\nTokens informados por el proveedor: entrada " +
+          (result.usage.inputTokens ?? "?") + " / salida " + (result.usage.outputTokens ?? "?"));
+      }
+      return;
+    }
+    if (action === "usage") {
+      const limit = rest[0] ? Number(rest[0]) : 20;
+      if (!Number.isInteger(limit) || limit < 1) throw new Error("El límite debe ser un entero positivo.");
+      const summary = await aiUsage.totalsToday();
+      console.log("Consumo registrado hoy (UTC)");
+      console.log("Solicitudes: " + summary.requests);
+      console.log("Tokens de entrada: " + summary.inputTokens);
+      console.log("Tokens de salida: " + summary.outputTokens);
+      console.log("\nÚltimas solicitudes:");
+      const entries = await aiUsage.list(limit);
+      for (const entry of entries) {
+        console.log(entry.timestamp + " | " + entry.provider + " | " + entry.model +
+          " | " + entry.result + " | " + entry.inputCharacters + " caracteres");
+        if (entry.inputTokens !== undefined || entry.outputTokens !== undefined) {
+          console.log("  Tokens: " + (entry.inputTokens ?? "?") + " entrada / " +
+            (entry.outputTokens ?? "?") + " salida");
+        }
+      }
+      console.log("\nNota: el registro de tokens depende de lo que devuelva cada proveedor; no representa un importe en dinero.");
+      return;
+    }
+    throw new Error("Uso de IA no válido. Ejecuta troc help.");
+  }
+
   if (group === "providers") {
     const { readFile } = await import("node:fs/promises");
     const configText = await readFile(new URL("../config/providers.json", import.meta.url), "utf8");
@@ -380,6 +426,19 @@ export async function runCli(args: string[]): Promise<void> {
         console.log(provider.name + ": " + (process.env[provider.env] ? "clave detectada" : "sin configurar"));
       }
       console.log("Nota: detectar una clave no comprueba conexión ni saldo de API.");
+      return;
+    }
+    if ((action === "test" || action === "models") && rest[0]) {
+      const models = await ai.models(rest[0]);
+      console.log("Conexión con " + rest[0] + ": correcta");
+      if (action === "test") {
+        console.log("Modelos disponibles: " + models.length);
+        console.log("Consulta completa con: troc providers models " + rest[0]);
+      } else if (!models.length) {
+        console.log("El proveedor no devolvió modelos en su catálogo.");
+      } else {
+        for (const model of models) console.log("  " + model);
+      }
       return;
     }
   }
