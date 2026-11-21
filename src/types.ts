@@ -9,6 +9,7 @@ export interface Task {
   priority: TaskPriority;
   created: string;
   projectId?: string;
+  agentIds?: string[];
 }
 
 export type HistoryAction =
@@ -17,7 +18,10 @@ export type HistoryAction =
   | "task.status_changed"
   | "task.project_linked"
   | "task.project_unlinked"
-  | "project.created";
+  | "task.agents_assigned"
+  | "project.created"
+  | "team.run_completed"
+  | "team.run_reviewed";
 
 export interface HistoryEntry {
   id: string;
