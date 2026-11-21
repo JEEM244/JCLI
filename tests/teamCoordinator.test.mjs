@@ -11,7 +11,7 @@ import { TeamRunStore } from "../dist/agents/runStore.js";
 function definitions() {
   return {
     limits: {
-      maxAgentsPerRun: 3,
+      maxAgentsPerRun: 4,
       maxFilesPerRun: 2,
       maxFileBytes: 5000,
       maxContextCharacters: 3000
@@ -23,8 +23,18 @@ function definitions() {
         enabled: true, maxOutputTokens: 100
       },
       {
+        id: "implementer", name: "Implementador", provider: "deepseek",
+        purpose: "Propone cambios", systemPrompt: "Propón cambios con cuidado.",
+        enabled: true, maxOutputTokens: 100
+      },
+      {
         id: "reviewer", name: "Revisor", provider: "anthropic",
         purpose: "Revisa", systemPrompt: "Revisa con cuidado.",
+        enabled: true, maxOutputTokens: 100
+      },
+      {
+        id: "tester", name: "Analista de pruebas", provider: "gemini",
+        purpose: "Diseña pruebas", systemPrompt: "Diseña pruebas con cuidado.",
         enabled: true, maxOutputTokens: 100
       }
     ]
@@ -52,7 +62,7 @@ test("prepara y ejecuta agentes en orden, comparte resultados y registra la revi
       priority: "media",
       created: "2026-11-20",
       projectId: "PROJECT-1",
-      agentIds: ["planner", "reviewer"]
+      agentIds: ["planner", "implementer", "reviewer", "tester"]
     };
     const tasks = { get: async (id) => id === task.id ? task : undefined };
     const projects = {
@@ -74,7 +84,7 @@ test("prepara y ejecuta agentes en orden, comparte resultados y registra la revi
     const coordinator = new TeamCoordinator(tasks, projects, ai, registry, runs, history);
 
     const plan = await coordinator.plan(task.id, ["README.md"]);
-    assert.equal(plan.estimatedRequests, 2);
+    assert.equal(plan.estimatedRequests, 4);
     assert.deepEqual(plan.files, ["README.md"]);
     assert.equal(prompts.length, 0);
 
@@ -82,10 +92,14 @@ test("prepara y ejecuta agentes en orden, comparte resultados y registra la revi
     process.env.JCLI_ENABLE_API_CALLS = "true";
     const run = await coordinator.run(task.id, ["README.md"]);
     assert.equal(run.status, "completed");
-    assert.equal(run.agents.length, 2);
+    assert.equal(run.agents.length, 4);
     assert.equal(prompts[0].provider, "openai");
-    assert.equal(prompts[1].provider, "anthropic");
+    assert.equal(prompts[1].provider, "deepseek");
+    assert.equal(prompts[2].provider, "anthropic");
+    assert.equal(prompts[3].provider, "gemini");
     assert.match(prompts[1].prompt, /Propuesta de openai/);
+    assert.match(prompts[2].prompt, /Propuesta de deepseek/);
+    assert.match(prompts[3].prompt, /Propuesta de anthropic/);
     assert.equal(prompts[0].options.systemPrompt, "Planifica con cuidado.");
     assert.equal((await coordinator.getRun(run.id)).status, "completed");
 
