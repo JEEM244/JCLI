@@ -133,8 +133,7 @@ export async function runCli(args: string[]): Promise<void> {
 
   if (group === "providers") {
     const { readFile } = await import("node:fs/promises");
-    const { resolve } = await import("node:path");
-    const configText = await readFile(resolve("config/providers.json"), "utf8");
+    const configText = await readFile(new URL("../config/providers.json", import.meta.url), "utf8");
     const providersConfig = JSON.parse(configText) as {
       providers: Array<{ id: string; name: string; env: string; enabled?: boolean }>;
     };
