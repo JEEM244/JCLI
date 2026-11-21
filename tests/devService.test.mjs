@@ -59,3 +59,34 @@ test("exige confirmación antes de ejecutar y almacena los resultados", async ()
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("crea tareas de VS Code solo con confirmación y nunca sobrescribe un archivo existente", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "jcli-vscode-tasks-"));
+  try {
+    const projectDirectory = path.join(directory, "project");
+    await (await import("node:fs/promises")).mkdir(projectDirectory);
+    await writeFile(path.join(projectDirectory, "package.json"), JSON.stringify({
+      scripts: { build: "tsc", test: "node --test" }
+    }), "utf8");
+    const projects = {
+      get: async () => ({ id: "WEB", name: "Web", directory: projectDirectory })
+    };
+    const service = new DevService(projects);
+    await assert.rejects(
+      () => service.configureVSCodeTasks("WEB", false),
+      /--confirm/
+    );
+    const tasksPath = await service.configureVSCodeTasks("WEB", true);
+    const tasks = JSON.parse(await (await import("node:fs/promises")).readFile(tasksPath, "utf8"));
+    assert.equal(tasks.version, "2.0.0");
+    assert.equal(tasks.tasks.length, 2);
+    assert.match(tasks.tasks[0].label, /JCLI: BUILD/);
+    assert.equal(tasks.tasks[0].options.cwd, "${workspaceFolder}");
+    await assert.rejects(
+      () => service.configureVSCodeTasks("WEB", true),
+      /no lo sobrescribirá/
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
