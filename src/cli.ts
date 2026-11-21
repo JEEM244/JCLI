@@ -59,6 +59,7 @@ function help(): void {
     "  troc dev run <ID_PROYECTO> <build|test> --confirm",
     "  troc dev show <ID_EJECUCIÓN>",
     "  troc dev runs [límite]",
+    "  troc dev vscode-tasks <ID_PROYECTO> --confirm",
     "  troc history [limite]",
     "  troc ide vscode detect",
     "  troc ide vs2026 detect",
@@ -479,6 +480,16 @@ export async function runCli(args: string[]): Promise<void> {
       for (const warning of toolchain.warnings) console.log("Aviso: " + warning);
       console.log("\nPlanear no ejecuta comandos ni modifica archivos.");
       console.log("Para ejecutar, vuelve a revisar el comando y usa --confirm.");
+      return;
+    }
+    if (action === "vscode-tasks" && rest[0]) {
+      if (rest.length !== 2 || rest[1] !== "--confirm") {
+        throw new Error("Crear .vscode/tasks.json requiere --confirm. Consulta primero troc dev inspect " + rest[0] + ".");
+      }
+      const file = await dev.configureVSCodeTasks(rest[0], true);
+      console.log("Tareas de VS Code creadas en: " + file);
+      console.log("Abre la paleta de comandos de VS Code y ejecuta Tasks: Run Task.");
+      console.log("JCLI no sobrescribe tasks.json existentes.");
       return;
     }
     if (action === "run" && rest[0] && rest[1]) {
