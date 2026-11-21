@@ -1,6 +1,6 @@
 {
   "limits": {
-    "maxAgentsPerRun": 3,
+    "maxAgentsPerRun": 4,
     "maxFilesPerRun": 6,
     "maxFileBytes": 12000,
     "maxContextCharacters": 3000
