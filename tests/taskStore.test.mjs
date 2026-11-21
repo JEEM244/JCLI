@@ -98,7 +98,7 @@ test("guarda la asignación de agentes en el TXT", async () => {
     assert.deepEqual((await store.get("TEAM-001")).agentIds, ["planner", "implementer", "reviewer", "tester"]);
     await assert.rejects(
       () => store.update("TEAM-001", { agentIds: ["planner", "implementer", "reviewer", "tester", "extra"] }),
-      /hasta 3 IDs/
+      /hasta 4 IDs/
     );
   } finally {
     await rm(directory, { recursive: true, force: true });
