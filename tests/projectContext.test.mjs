@@ -54,3 +54,18 @@ test("aplica límites de cantidad, tamaño y contexto", async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("redacta credenciales comunes antes de devolver contexto al coordinador", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "jcli-context-redact-"));
+  try {
+    await writeFile(path.join(directory, "settings.txt"),
+      'api_key = "VERY_PRIVATE_API_KEY_12345"\\nAuthorization: Bearer abcdefghijklmnopqrstuvwxyz123\\n', "utf8");
+    const loader = new ProjectContextLoader(limits);
+    const [file] = await loader.load(directory, ["settings.txt"]);
+    assert.doesNotMatch(file.content, /VERY_PRIVATE_API_KEY_12345/);
+    assert.doesNotMatch(file.content, /abcdefghijklmnopqrstuvwxyz123/);
+    assert.match(file.content, /REDACTED/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
