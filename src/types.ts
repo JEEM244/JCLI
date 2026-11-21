@@ -8,4 +8,21 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   created: string;
+  projectId?: string;
+}
+
+export type HistoryAction =
+  | "task.created"
+  | "task.updated"
+  | "task.status_changed"
+  | "task.project_linked"
+  | "task.project_unlinked"
+  | "project.created";
+
+export interface HistoryEntry {
+  id: string;
+  timestamp: string;
+  action: HistoryAction;
+  entityId: string;
+  summary: string;
 }
