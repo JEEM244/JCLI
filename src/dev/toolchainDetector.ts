@@ -80,7 +80,7 @@ export async function detectToolchain(projectId: string, directory: string): Pro
       action: "build",
       executable: "dotnet",
       args: ["build", relative, "--nologo"],
-      display: "dotnet build " + relative,
+      display: "dotnet build " + relative + " --nologo",
       note: "Compila la solución o proyecto .NET detectado."
     });
     commands.push({
@@ -88,7 +88,7 @@ export async function detectToolchain(projectId: string, directory: string): Pro
       action: "test",
       executable: "dotnet",
       args: ["test", relative, "--nologo"],
-      display: "dotnet test " + relative,
+      display: "dotnet test " + relative + " --nologo",
       note: "Ejecuta las pruebas .NET descubiertas por el SDK."
     });
   }
