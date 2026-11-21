@@ -32,7 +32,7 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [ ] Streaming de respuestas y conversaciones persistentes.
 
 ## V0.4 — Coordinación multiagente
-- [x] Coordinador secuencial de hasta 3 agentes por tarea.
+- [x] Coordinador secuencial de hasta 4 agentes por tarea.
 - [x] Asignación de agentes mediante la línea `agents=` en cada TXT.
 - [x] Perfiles configurables para planificación, propuesta de código, revisión y pruebas.
 - [x] Contexto de proyecto mediante archivos elegidos explícitamente.
