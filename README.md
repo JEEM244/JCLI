@@ -55,6 +55,10 @@ created=2026-11-20
 
 Estados: `pendientes`, `en_proceso`, `completadas`, `archivadas`.
 
+## Registro de proyectos
+
+Los proyectos se guardan en `data/projects/projects.json`. Puedes registrarlos desde la terminal con `troc project add`, consultar el registro con `troc project list` y abrir su carpeta con `troc project open <ID>`.
+
 ## Estado del proyecto
 
 Esta es la primera base funcional. Todavía no realiza llamadas a APIs de IA ni ejecuta acciones sobre Visual Studio. Las claves API se configuran por variables de entorno y nunca deben subirse al repositorio.
