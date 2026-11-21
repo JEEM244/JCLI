@@ -22,7 +22,12 @@ export type HistoryAction =
   | "project.created"
   | "team.run_completed"
   | "team.run_reviewed"
-  | "dev.command_finished";
+  | "dev.command_finished"
+  | "patch.drafted"
+  | "patch.approved"
+  | "patch.rejected"
+  | "patch.applied"
+  | "patch.rolled_back";
 
 export interface HistoryEntry {
   id: string;

@@ -168,8 +168,42 @@ Solo se envían los archivos seleccionados después de `--file`. JCLI bloquea ru
 
 Las operaciones generales se guardan en `data/history/events.jsonl`; el consumo de IA en `data/history/ai-usage.jsonl`; los resultados de build/test en `data/dev-runs/`. Los datos locales y potencialmente sensibles están excluidos de Git.
 
-## Estado y límites
+## V0.6 — Propuestas de cambios revisables
 
-Versión actual: **0.5.0**.
+JCLI permite preparar y aplicar cambios de archivos de forma controlada. La propuesta se crea comparando un archivo existente con un archivo candidato que tú preparaste. Ambos deben estar dentro de la carpeta del proyecto registrada.
 
-JCLI ya gestiona tareas, proyectos, cuatro proveedores de IA, coordinación multiagente, detección de toolchains, ejecución local controlada de build/test y tareas para VS Code. Aún no incluye streaming de IA, conversaciones persistentes, cálculo monetario automático, diagnóstico inteligente de errores por IDE ni aplicación automática de parches.
+```powershell
+# 1. Prepara una copia modificada del archivo dentro del proyecto.
+# 2. Compara el original y el candidato:
+troc patch draft WEB src/app.ts src/app.proposed.ts
+troc patch show ID_PROPUESTA
+
+# 3. Después de revisar el diff:
+troc patch approve ID_PROPUESTA
+troc patch apply ID_PROPUESTA --confirm
+
+# 4. Para restaurar la versión anterior:
+troc patch rollback ID_PROPUESTA --confirm
+
+troc patch list
+troc patch reject ID_PROPUESTA
+```
+
+### Reglas de protección
+
+- La propuesta solo puede modificar un archivo existente dentro del proyecto registrado; no crea ni elimina archivos.
+- Se bloquean rutas externas, traversal (`..`), enlaces simbólicos, dependencias, carpetas generadas y archivos típicos de credenciales.
+- El archivo original se compara mediante SHA-256 al aplicar. Si cambió desde que se creó la propuesta, JCLI cancela la operación.
+- Solo se aplican propuestas aprobadas y el comando de aplicación exige `--confirm`.
+- Antes de escribir, se guarda una copia del contenido original en `data/patches/backups/`.
+- La reversión exige que el archivo siga coincidiendo con la versión aplicada; no pisa cambios posteriores del usuario.
+- Los registros y respaldos se guardan localmente en `data/patches/` y están excluidos de Git.
+- Tamaño máximo por archivo: 256 KiB; máximo de 1,500 líneas.
+
+Los agentes de IA siguen generando propuestas, no editan archivos directamente. Para usar una propuesta de un agente, prepara el archivo candidato, revísalo con `troc patch show` y sigue el flujo de aprobación.
+
+## Estado actual
+
+Versión actual: **0.6.0**.
+
+JCLI incluye gestión de tareas y proyectos, conectores de IA, coordinación multiagente, detección y ejecución controlada de build/test, integración inicial con VS Code y Visual Studio 2026, y aplicación asistida de cambios con revisión, respaldo y reversión.

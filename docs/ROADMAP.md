@@ -58,6 +58,17 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [ ] Gestión de extensiones de VS Code y cargas de trabajo de Visual Studio.
 - [ ] Gestión de Git con confirmaciones antes de cambios importantes.
 
+## V0.6 — Cambios asistidos y reversibles
+- [x] Crear propuestas a partir de un archivo original y un candidato explícito.
+- [x] Mostrar diferencias antes de aprobar.
+- [x] Bloquear rutas externas, traversal, symlinks y archivos/carpetas sensibles.
+- [x] Limitar tamaño y número de líneas de archivos propuestos.
+- [x] Exigir aprobación humana y `--confirm` para aplicar.
+- [x] Verificar SHA-256 para detectar cambios externos antes de aplicar.
+- [x] Crear respaldos locales antes de escribir.
+- [x] Revertir solo cuando el archivo no haya cambiado después de la aplicación.
+- [x] Guardar el estado de propuestas y decisiones en el almacenamiento local.
+
 ## Principios
 
 - Priorizar Windows 11 y PowerShell 7.

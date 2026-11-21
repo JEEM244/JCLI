@@ -14,6 +14,9 @@ import { TeamRunStore } from "./agents/runStore.js";
 import { TeamCoordinator } from "./agents/teamCoordinator.js";
 import { DevService } from "./dev/devService.js";
 import { DevRunStore } from "./dev/runStore.js";
+import { PatchService } from "./patches/patchService.js";
+import { PatchStore } from "./patches/patchStore.js";
+import { renderPatchDiff } from "./patches/patchDiff.js";
 import { analyzeProject } from "./projects/projectAnalyzer.js";
 import { inspectGit } from "./projects/gitInspector.js";
 import { detectVSCode, detectVisualStudio2026 } from "./integrations/ide/detector.js";
@@ -29,6 +32,8 @@ const teamRuns = new TeamRunStore();
 const team = new TeamCoordinator(store, projects, ai, agentRegistry, teamRuns, history);
 const devRuns = new DevRunStore();
 const dev = new DevService(projects, undefined, devRuns, history);
+const patchStore = new PatchStore();
+const patchService = new PatchService(projects, patchStore, history);
 const statuses: TaskStatus[] = ["pendientes", "en_proceso", "completadas", "archivadas"];
 const priorities: TaskPriority[] = ["baja", "media", "alta", "urgente"];
 
@@ -60,6 +65,13 @@ function help(): void {
     "  troc dev show <ID_EJECUCIÓN>",
     "  troc dev runs [límite]",
     "  troc dev vscode-tasks <ID_PROYECTO> --confirm",
+    "  troc patch draft <PROYECTO> <ARCHIVO> <PROPUESTA>",
+    "  troc patch show <ID>",
+    "  troc patch list [limite]",
+    "  troc patch approve <ID>",
+    "  troc patch reject <ID>",
+    "  troc patch apply <ID> --confirm",
+    "  troc patch rollback <ID> --confirm",
     "  troc history [limite]",
     "  troc ide vscode detect",
     "  troc ide vs2026 detect",
@@ -538,6 +550,74 @@ export async function runCli(args: string[]): Promise<void> {
       return;
     }
     throw new Error("Uso de dev no válido. Ejecuta troc help.");
+  }
+
+
+  if (group === "patch") {
+    if (action === "draft" && rest.length === 3) {
+      const patch = await patchService.draft(rest[0], rest[1], rest[2]);
+      console.log("Propuesta creada: " + patch.id);
+      console.log("Proyecto: " + patch.projectId);
+      console.log("Archivo: " + patch.targetPath);
+      console.log("Candidato: " + patch.candidatePath);
+      console.log("Estado: " + patch.status);
+      console.log("Revisa los cambios con: troc patch show " + patch.id);
+      return;
+    }
+    if (action === "show" && rest.length === 1) {
+      const patch = await patchService.get(rest[0]);
+      if (!patch) throw new Error("No se encontró la propuesta " + rest[0] + ".");
+      console.log("Propuesta " + patch.id + " — " + patch.status);
+      console.log("Proyecto: " + patch.projectId);
+      console.log("Archivo: " + patch.targetPath);
+      console.log("Candidato: " + patch.candidatePath);
+      console.log("Creada: " + patch.createdAt);
+      console.log("SHA-256 original: " + patch.originalHash);
+      console.log("SHA-256 propuesto: " + patch.proposedHash);
+      console.log("");
+      console.log(renderPatchDiff(patch));
+      if (patch.status === "draft") {
+        console.log("");
+        console.log("Cuando termines de revisar, usa troc patch approve " + patch.id + ".");
+      }
+      return;
+    }
+    if (action === "list") {
+      const limit = rest[0] ? Number(rest[0]) : 20;
+      if (!Number.isInteger(limit) || limit < 1) throw new Error("El límite debe ser un entero positivo.");
+      const items = await patchService.list(limit);
+      if (!items.length) return console.log("No hay propuestas de cambios guardadas.");
+      for (const item of items) {
+        console.log(item.id + " | " + item.status + " | " + item.projectId + " | " + item.targetPath);
+      }
+      return;
+    }
+    if (action === "approve" && rest.length === 1) {
+      const patch = await patchService.approve(rest[0]);
+      console.log("Propuesta aprobada: " + patch.id);
+      console.log("Para aplicarla: troc patch apply " + patch.id + " --confirm");
+      return;
+    }
+    if (action === "reject" && rest.length === 1) {
+      const patch = await patchService.reject(rest[0]);
+      console.log("Propuesta rechazada: " + patch.id);
+      return;
+    }
+    if (action === "apply" && rest.length === 2 && rest[1] === "--confirm") {
+      const patch = await patchService.apply(rest[0], true);
+      console.log("Cambio aplicado: " + patch.targetPath);
+      console.log("Respaldo: " + (patch.backupPath || "no disponible"));
+      console.log("Estado: " + patch.status);
+      console.log("Para revertir: troc patch rollback " + patch.id + " --confirm");
+      return;
+    }
+    if (action === "rollback" && rest.length === 2 && rest[1] === "--confirm") {
+      const patch = await patchService.rollback(rest[0], true);
+      console.log("Respaldo restaurado: " + patch.targetPath);
+      console.log("Estado: " + patch.status);
+      return;
+    }
+    throw new Error("Uso de patch no válido. Ejecuta troc help.");
   }
 
   if (group === "team") {

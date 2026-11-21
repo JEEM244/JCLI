@@ -11,4 +11,5 @@ Thumbs.db
 data/projects/projects.json
 data/agents/runs/
 data/history/*.jsonl
-data/dev-runs/\n
+data/dev-runs/
+data/patches/
