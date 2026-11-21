@@ -80,13 +80,13 @@ export async function runCli(args: string[]): Promise<void> {
   }
 
   if (group === "providers") {
-    const config = await import("../config/providers.json", { with: { type: "json" } }).catch(() => null);
-    const providers = config?.default?.providers ?? [
-      { id: "openai", name: "OpenAI", env: "OPENAI_API_KEY" },
-      { id: "gemini", name: "Google Gemini", env: "GEMINI_API_KEY" },
-      { id: "deepseek", name: "DeepSeek", env: "DEEPSEEK_API_KEY" },
-      { id: "anthropic", name: "Anthropic Claude", env: "ANTHROPIC_API_KEY" }
-    ];
+    const { readFile } = await import("node:fs/promises");
+    const { resolve } = await import("node:path");
+    const configText = await readFile(resolve("config/providers.json"), "utf8");
+    const providersConfig = JSON.parse(configText) as {
+      providers: Array<{ id: string; name: string; env: string; enabled?: boolean }>;
+    };
+    const providers = providersConfig.providers;
     if (action === "list") {
       for (const provider of providers) console.log(`${provider.id} — ${provider.name}`);
       return;
