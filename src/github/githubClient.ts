@@ -35,7 +35,14 @@ export class GitHubClient {
     endpoint: string,
     body?: Record<string, unknown>
   ): Promise<T> {
-    if (!endpoint.startsWith("/repos/") || endpoint.includes("..") || endpoint.includes("\0")) {
+    let pathSegments: string[];
+    try {
+      pathSegments = endpoint.split("?")[0].split("/").map((segment) => decodeURIComponent(segment));
+    } catch {
+      throw new Error("Ruta interna de GitHub inválida.");
+    }
+    if (!endpoint.startsWith("/repos/") || endpoint.includes("\0") || endpoint.includes("\\") ||
+        pathSegments.some((segment) => segment === "." || segment === "..")) {
       throw new Error("Ruta interna de GitHub inválida.");
     }
     const headers: Record<string, string> = {
