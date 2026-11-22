@@ -32,7 +32,11 @@ export type HistoryAction =
   | "git.unstaged"
   | "git.committed"
   | "git.branch_created"
-  | "git.branch_switched";
+  | "git.branch_switched"
+  | "github.pr_created"
+  | "github.issue_created"
+  | "github.issue_linked"
+  | "github.issue_unlinked";
 
 export interface HistoryEntry {
   id: string;

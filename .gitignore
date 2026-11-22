@@ -13,3 +13,4 @@ data/agents/runs/
 data/history/*.jsonl
 data/dev-runs/
 data/patches/
+data/github/

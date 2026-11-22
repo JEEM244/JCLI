@@ -82,6 +82,17 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [ ] Comparación visual enriquecida entre ramas y commits.
 - [ ] Integración remota con revisión explícita de `push` y autenticación.
 
+## V0.8 — GitHub
+- [x] Identificar el repositorio GitHub desde el remoto origin.
+- [x] Consultar datos del repositorio y ramas remotas.
+- [x] Comparar ramas mediante la API oficial de GitHub.
+- [x] Consultar Pull Requests abiertos, cerrados y por número.
+- [x] Crear Pull Requests tras confirmar que la rama local está limpia y publicada.
+- [x] Consultar y crear Issues.
+- [x] Asociar Issues existentes con tareas locales y guardar vínculos fuera de Git.
+- [x] Requerir token, habilitación doble y --confirm para publicaciones.
+- [x] Mantener deshabilitados push y operaciones remotas destructivas.
+
 ## Principios
 
 - Priorizar Windows 11 y PowerShell 7.

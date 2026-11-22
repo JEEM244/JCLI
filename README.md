@@ -96,6 +96,21 @@ troc git branch list WEB
 troc git branch create WEB feature/panel --confirm
 troc git branch switch WEB main --confirm
 
+# GitHub
+troc github status
+troc github repo WEB
+troc github branches WEB
+troc github compare WEB main feature/panel
+troc github prs WEB open
+troc github pr show WEB 12
+troc github pr create WEB main "Agrega panel" "Descripción del cambio" --confirm
+troc github issues WEB open
+troc github issue show WEB 15
+troc github issue create WEB "Error en formulario" "Pasos para reproducir" --confirm
+troc github issue link WEB WEB-001 15 --confirm
+troc github issue links WEB
+troc github issue unlink WEB WEB-001 --confirm
+
 # Historial
 troc history
 troc history 50
@@ -238,3 +253,43 @@ JCLI ahora puede consultar y administrar operaciones Git locales en proyectos re
 - Cada operación de escritura registra un evento en el historial local.
 
 Versión actual: **0.7.0**.
+
+## V0.8 — GitHub
+
+JCLI usa el remoto `origin` del proyecto registrado y solo admite repositorios alojados en `github.com`.
+
+### Consultas
+
+- `troc github status`: muestra si hay token y si las escrituras están habilitadas.
+- `troc github repo ID`: muestra repositorio, URL, rama principal y visibilidad.
+- `troc github branches ID`: consulta ramas remotas.
+- `troc github compare ID BASE HEAD`: consulta commits y archivos modificados entre dos ramas.
+- `troc github prs ID [open|closed|all]` y `troc github pr show ID NUMERO`: consulta Pull Requests.
+- `troc github issues ID [open|closed|all]` y `troc github issue show ID NUMERO`: consulta Issues (sin mezclar Pull Requests).
+
+### Publicación
+
+Para crear PRs o Issues configura `GITHUB_TOKEN` en `.env` y habilita `JCLI_ENABLE_GITHUB_WRITES=true`. Ambas condiciones son obligatorias además de `--confirm` en cada operación.
+
+- `troc github pr create ID BASE TITULO DESCRIPCION --confirm`: crea un Pull Request desde la rama local actual.
+- `troc github issue create ID TITULO DESCRIPCION --confirm`: crea un Issue.
+
+El Pull Request solo se crea si la rama local está limpia y su último commit coincide con la rama ya publicada en GitHub. JCLI no hace `push`; publica la rama manualmente antes de solicitar el PR.
+
+### Vínculos con tareas
+
+- `troc github issue link ID_PROYECTO ID_TAREA NUMERO --confirm`: vincula una tarea existente con un Issue real del repositorio.
+- `troc github issue links ID_PROYECTO`: consulta los vínculos locales.
+- `troc github issue unlink ID_PROYECTO ID_TAREA --confirm`: elimina la asociación local sin cerrar ni borrar el Issue.
+
+Los vínculos se guardan en `data/github/issue-links.json`, excluido de Git. No modifican los archivos TXT de tareas ni los Issues remotos.
+
+### Token y permisos
+
+Las consultas de repositorios públicos pueden funcionar sin token. Para privados configura un token de acceso personal granular limitado al repositorio que vas a usar. Para consultar, concede lectura de Contents, Pull requests e Issues según las funciones que necesites. Para publicar PRs concede escritura de Pull requests; para crear Issues concede escritura de Issues. No compartas el token ni lo pegues en conversaciones o archivos del proyecto.
+
+`JCLI_ENABLE_GITHUB_WRITES=false` es el valor inicial. Las consultas GET siguen disponibles aunque las escrituras estén apagadas. El token se envía únicamente a `api.github.com`; los mensajes de error ocultan su valor.
+
+JCLI no implementa `push`, fusión, cierre de PRs/Issues ni cambios de permisos.
+
+Versión actual: **0.8.0**.

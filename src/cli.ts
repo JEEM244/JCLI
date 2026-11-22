@@ -18,6 +18,9 @@ import { PatchService } from "./patches/patchService.js";
 import { PatchStore } from "./patches/patchStore.js";
 import { renderPatchDiff } from "./patches/patchDiff.js";
 import { GitService } from "./git/gitService.js";
+import { GitHubClient } from "./github/githubClient.js";
+import { GitHubService } from "./github/githubService.js";
+import { GitHubIssueLinkStore } from "./github/issueLinkStore.js";
 import { analyzeProject } from "./projects/projectAnalyzer.js";
 import { inspectGit } from "./projects/gitInspector.js";
 import { detectVSCode, detectVisualStudio2026 } from "./integrations/ide/detector.js";
@@ -36,6 +39,9 @@ const dev = new DevService(projects, undefined, devRuns, history);
 const patchStore = new PatchStore();
 const patchService = new PatchService(projects, patchStore, history);
 const gitService = new GitService(projects, history);
+const githubClient = new GitHubClient();
+const githubLinks = new GitHubIssueLinkStore();
+const github = new GitHubService(projects, store, githubClient, githubLinks, history);
 const statuses: TaskStatus[] = ["pendientes", "en_proceso", "completadas", "archivadas"];
 const priorities: TaskPriority[] = ["baja", "media", "alta", "urgente"];
 
@@ -83,6 +89,19 @@ function help(): void {
     "  troc git branch list <PROYECTO>",
     "  troc git branch create <PROYECTO> <NOMBRE> --confirm",
     "  troc git branch switch <PROYECTO> <NOMBRE> --confirm",
+    "  troc github status",
+    "  troc github repo <PROYECTO>",
+    "  troc github branches <PROYECTO>",
+    "  troc github compare <PROYECTO> <BASE> <HEAD>",
+    "  troc github prs <PROYECTO> [open|closed|all]",
+    "  troc github pr show <PROYECTO> <NUMERO>",
+    "  troc github pr create <PROYECTO> <BASE> <TITULO> <DESCRIPCION> --confirm",
+    "  troc github issues <PROYECTO> [open|closed|all]",
+    "  troc github issue show <PROYECTO> <NUMERO>",
+    "  troc github issue create <PROYECTO> <TITULO> <DESCRIPCION> --confirm",
+    "  troc github issue link <PROYECTO> <ID_TAREA> <NUMERO> --confirm",
+    "  troc github issue unlink <PROYECTO> <ID_TAREA> --confirm",
+    "  troc github issue links <PROYECTO>",
     "  troc history [limite]",
     "  troc ide vscode detect",
     "  troc ide vs2026 detect",
@@ -461,6 +480,137 @@ export async function runCli(args: string[]): Promise<void> {
       }
     }
     throw new Error("Uso de Git no válido. Ejecuta troc help.");
+  }
+
+
+  if (group === "github") {
+    if (action === "status" && rest.length === 0) {
+      console.log("Token configurado: " + (githubClient.authenticated ? "sí" : "no"));
+      console.log("Escrituras habilitadas: " +
+        (process.env.JCLI_ENABLE_GITHUB_WRITES === "true" ? "sí" : "no"));
+      console.log("Las consultas públicas pueden funcionar sin token.");
+      return;
+    }
+    if (action === "repo" && rest.length === 1) {
+      const repository = await github.repository(rest[0]);
+      console.log("Repositorio: " + repository.fullName);
+      console.log("URL: " + repository.htmlUrl);
+      console.log("Rama principal: " + repository.defaultBranch);
+      console.log("Visibilidad: " + (repository.private ? "privado" : "público"));
+      return;
+    }
+    if (action === "branches" && rest.length === 1) {
+      const branches = await github.branches(rest[0]);
+      if (!branches.length) return console.log("No se encontraron ramas remotas.");
+      for (const branch of branches) {
+        console.log(branch.name + " | " + branch.sha.slice(0, 10) +
+          (branch.protected ? " | protegida" : ""));
+      }
+      return;
+    }
+    if (action === "compare" && rest.length === 3) {
+      const comparison = await github.compare(rest[0], rest[1], rest[2]);
+      console.log(rest[1] + " ... " + rest[2]);
+      console.log("Estado: " + comparison.status);
+      console.log("Commits adelante: " + comparison.aheadBy);
+      console.log("Commits atrás: " + comparison.behindBy);
+      console.log("Commits comparados: " + comparison.totalCommits);
+      console.log("");
+      for (const file of comparison.files) {
+        console.log(file.status + " | " + file.filename +
+          " | +" + file.additions + " -" + file.deletions);
+      }
+      return;
+    }
+    if (action === "prs" && rest.length >= 1 && rest.length <= 2) {
+      const state = rest[1] ?? "open";
+      if (!["open", "closed", "all"].includes(state)) {
+        throw new Error("El filtro debe ser open, closed o all.");
+      }
+      const items = await github.listPullRequests(rest[0], state as "open" | "closed" | "all");
+      if (!items.length) return console.log("No hay Pull Requests para ese filtro.");
+      for (const item of items) {
+        console.log("#" + item.number + " [" + item.state + "] " + item.title);
+        console.log("  " + item.head + " → " + item.base + (item.draft ? " | borrador" : ""));
+        console.log("  " + item.htmlUrl);
+      }
+      return;
+    }
+    if (action === "pr") {
+      const prAction = rest[0];
+      if (prAction === "show" && rest.length === 3) {
+        const projectId = rest[1];
+        const number = Number(rest[2]);
+        if (!Number.isSafeInteger(number) || number < 1) throw new Error("Número de Pull Request inválido.");
+        const item = await github.getPullRequest(projectId, number);
+        console.log("#" + item.number + " [" + item.state + "] " + item.title);
+        console.log(item.head + " → " + item.base);
+        console.log(item.htmlUrl);
+        if (item.body) console.log("\n" + item.body);
+        return;
+      }
+      if (prAction === "create" && rest.length === 6 && rest[5] === "--confirm") {
+        const item = await github.createPullRequest(rest[1], rest[2], rest[3], rest[4], true);
+        console.log("Pull Request creado: #" + item.number);
+        console.log(item.title);
+        console.log(item.htmlUrl);
+        return;
+      }
+    }
+    if (action === "issues" && rest.length >= 1 && rest.length <= 2) {
+      const state = rest[1] ?? "open";
+      if (!["open", "closed", "all"].includes(state)) {
+        throw new Error("El filtro debe ser open, closed o all.");
+      }
+      const items = await github.listIssues(rest[0], state as "open" | "closed" | "all");
+      if (!items.length) return console.log("No hay Issues para ese filtro.");
+      for (const item of items) {
+        console.log("#" + item.number + " [" + item.state + "] " + item.title);
+        console.log("  " + item.htmlUrl);
+      }
+      return;
+    }
+    if (action === "issue") {
+      const issueAction = rest[0];
+      if (issueAction === "show" && rest.length === 3) {
+        const number = Number(rest[2]);
+        if (!Number.isSafeInteger(number) || number < 1) throw new Error("Número de Issue inválido.");
+        const item = await github.getIssue(rest[1], number);
+        console.log("#" + item.number + " [" + item.state + "] " + item.title);
+        console.log(item.htmlUrl);
+        if (item.body) console.log("\n" + item.body);
+        return;
+      }
+      if (issueAction === "create" && rest.length === 5 && rest[4] === "--confirm") {
+        const item = await github.createIssue(rest[1], rest[2], rest[3], true);
+        console.log("Issue creado: #" + item.number);
+        console.log(item.title);
+        console.log(item.htmlUrl);
+        return;
+      }
+      if (issueAction === "link" && rest.length === 5 && rest[4] === "--confirm") {
+        const number = Number(rest[3]);
+        if (!Number.isSafeInteger(number) || number < 1) throw new Error("Número de Issue inválido.");
+        const linked = await github.linkIssue(rest[1], rest[2], number, true);
+        console.log("Tarea " + linked.taskId + " vinculada con el Issue #" + linked.issueNumber);
+        console.log(linked.issueUrl);
+        return;
+      }
+      if (issueAction === "unlink" && rest.length === 4 && rest[3] === "--confirm") {
+        const removed = await github.unlinkIssue(rest[1], rest[2], true);
+        console.log("Issue #" + removed.issueNumber + " desvinculado de " + removed.taskId + ".");
+        return;
+      }
+      if (issueAction === "links" && rest.length === 2) {
+        const items = await github.issueLinks(rest[1]);
+        if (!items.length) return console.log("No hay Issues vinculados a tareas de este proyecto.");
+        for (const item of items) {
+          console.log(item.taskId + " → #" + item.issueNumber + " | " + item.issueUrl);
+        }
+        return;
+      }
+    }
+    throw new Error("Uso de GitHub no válido. Ejecuta troc help.");
   }
 
   if (group === "history") {
