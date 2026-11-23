@@ -154,6 +154,7 @@ troc setup report "C:\Proyectos\MVCConexion_5L1"
 - plan separa las restauraciones automáticas de los pasos manuales para Visual Studio 2026, SSMS 22 y bases de datos.
 - run --confirm puede restaurar paquetes .NET, npm/pnpm/yarn y Composer si encuentra los manifiestos y lockfiles adecuados. Desactiva scripts de instalación de terceros cuando el gestor lo permite.
 - Python: JCLI crea `.venv` cuando no existe. Solo instala automáticamente un `requirements.txt` si todas las dependencias tienen versión exacta y hash SHA-256; usa `pip --require-hashes --only-binary=:all:` para evitar compilar paquetes desde código fuente. Si no cumple el formato estricto, deja la instalación como paso manual.
+- Go: `go mod download` requiere `go.sum`. Rust: `cargo fetch --locked` requiere `Cargo.lock`; ambas operaciones solo descargan dependencias y no compilan el proyecto.
 - No se ejecutan SQL, migraciones, compilaciones ni restauraciones de respaldos. Tampoco se crean, modifican o eliminan bases de datos.
 - El análisis tiene límites de profundidad y cantidad de archivos para no recorrer carpetas de dependencias y resultados de compilación.
 
@@ -170,7 +171,7 @@ No imprime hosts, nombres de bases, usuarios ni contraseñas; tampoco resuelve v
 
 #### Componentes de Visual Studio 2026
 
-Además de detectar la instalación de Visual Studio 2026, \`troc setup doctor\` revisa componentes relevantes para el proyecto:
+Además de detectar la instalación de Visual Studio 2026, `troc setup doctor` revisa componentes relevantes para el proyecto:
 
 - ASP.NET Core o ASP.NET Framework: carga de herramientas web.
 - Proyectos dirigidos a .NET Framework 4.8 o 4.8.1: paquete de destino correspondiente.

@@ -18,6 +18,9 @@ const TIMEOUT_MS = 180_000;
 export interface SetupInspection {
   root: string; name: string; filesScanned: number; truncated: boolean;
   kinds: string[]; languages: string[]; manifests: string[];
+  packageManagerHints: Record<string, string>;
+  packageLockfiles: Record<string, string[]>;
+  yarnBerryDirectories: string[];
   solutions: string[]; dotnetProjects: string[]; sqlProjects: string[];
   databaseEngines: string[]; databaseLibraries: string[];
   connectionFiles: string[]; connectionNames: string[];
@@ -97,6 +100,13 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
   const paths = files.map((file) => rel(root, file));
   const lower = paths.map((file) => file.toLowerCase());
   const has = (file: string): boolean => lower.includes(file.toLowerCase());
+  for (const file of paths) {
+    const base = path.posix.basename(file).toLowerCase();
+    if (["package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock"].includes(base)) {
+      const directory = path.posix.dirname(file);
+      (packageLockfiles[directory] ??= []).push(file);
+    }
+  }
   const named = (pattern: RegExp): string[] => paths.filter((file) => pattern.test(path.posix.basename(file)));
   const solutions = named(/\.(sln|slnx)$/i).sort();
   const dotnetProjects = named(/\.csproj$/i).sort();
@@ -115,6 +125,9 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
   const requirements = new Set<string>();
   const packageDirectories: string[] = [];
   const composerDirectories: string[] = [];
+  const packageManagerHints: Record<string, string> = {};
+  const packageLockfiles: Record<string, string[]> = {};
+  const yarnBerryDirectories = new Set<string>();
   const pythonDirectories = new Set<string>();
   const pythonRequirementsFiles: string[] = [];
   const pythonHashLockedRequirements: string[] = [];
@@ -138,6 +151,11 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
     if (language) languages.add(language);
     const absolute = path.join(root, file);
 
+    if (base === "yarn.lock") {
+      const lockContent = await readManifest(absolute);
+      if (/^__metadata:\s*$/m.test(lockContent)) yarnBerryDirectories.add(path.posix.dirname(file));
+    }
+
     if (/^appsettings(\.[^/]+)?\.json$/i.test(base)) {
       connectionFiles.push(file);
       try { collectConnectionNames(JSON.parse(await readManifest(absolute)) as unknown, connectionNames); }
@@ -148,7 +166,17 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
       packageDirectories.push(dir);
       kinds.add("Node.js"); requirements.add("Node.js y npm");
       try {
-        const parsed = JSON.parse(await readManifest(absolute)) as { dependencies?: Record<string,string>; devDependencies?: Record<string,string> };
+        const parsed = JSON.parse(await readManifest(absolute)) as {
+          dependencies?: Record<string,string>;
+          devDependencies?: Record<string,string>;
+          packageManager?: string;
+        };
+        if (parsed.packageManager) {
+          const declared = parsed.packageManager.match(/^(npm|pnpm|yarn)@(d+)(?:.|$)/i);
+          packageManagerHints[dir] = declared
+            ? declared[1].toLowerCase() + "@" + declared[2]
+            : "unsupported";
+        }
         const deps = { ...parsed.dependencies, ...parsed.devDependencies };
         if (deps["@angular/core"] || has(path.posix.join(dir, "angular.json"))) kinds.add("Angular");
         if (deps.react) kinds.add("React");
@@ -233,6 +261,9 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
   if (paths.some((file) => /(^|\/)angular\.json$/i.test(file))) kinds.add("Angular");
 
   const warnings: string[] = [];
+  for (const [directory, lockfiles] of Object.entries(packageLockfiles)) {
+    if (lockfiles.length > 1) warnings.push("Node.js (" + directory + "): existen varios lockfiles; JCLI no elegirá un gestor automáticamente.");
+  }
   if (truncated) warnings.push("Se alcanzó el límite de profundidad o archivos; el inventario puede estar incompleto.");
   if (connectionFiles.length) warnings.push("Se detectaron configuraciones de conexión. Solo se muestran nombres, nunca valores ni contraseñas.");
   if (engines.size && !migrations.length && !sqlScripts.length && !backups.length) warnings.push("Se detectó una base de datos, pero no se encontraron scripts, migraciones ni respaldos.");
@@ -244,7 +275,11 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
   return {
     root, name: path.basename(root), filesScanned: files.length, truncated,
     kinds: [...kinds].sort(), languages: [...languages].sort(),
-    manifests: [...new Set(manifests)].sort(), solutions, dotnetProjects, sqlProjects,
+    manifests: [...new Set(manifests)].sort(),
+    packageManagerHints,
+    packageLockfiles: Object.fromEntries(Object.entries(packageLockfiles).map(([directory, files]) => [directory, files.sort()])),
+    yarnBerryDirectories: [...yarnBerryDirectories].sort(),
+    solutions, dotnetProjects, sqlProjects,
     databaseEngines: [...engines].sort(), databaseLibraries: [...libraries].sort(),
     connectionFiles: connectionFiles.sort(), connectionNames: [...connectionNames].sort(),
     sqlScripts, migrations, backups,
@@ -275,18 +310,46 @@ export function createSetupPlan(report: SetupInspection): SetupPlan {
       "dotnet", ["restore", target], report.root, "dotnet restore " + target));
   }
   for (const dir of report.packageDirectories) {
-    const prefix = dir === "." ? "" : dir + "/";
-    const lowerManifests = report.manifests.map((file) => file.toLowerCase());
-    const manager = [
-      { lock:"package-lock.json", name:"npm", exe:process.platform === "win32" ? "npm.cmd" : "npm", args:["ci","--ignore-scripts"], display:"npm ci --ignore-scripts" },
-      { lock:"npm-shrinkwrap.json", name:"npm", exe:process.platform === "win32" ? "npm.cmd" : "npm", args:["ci","--ignore-scripts"], display:"npm ci --ignore-scripts" },
-      { lock:"pnpm-lock.yaml", name:"pnpm", exe:process.platform === "win32" ? "pnpm.cmd" : "pnpm", args:["install","--frozen-lockfile","--ignore-scripts"], display:"pnpm install --frozen-lockfile --ignore-scripts" },
-      { lock:"yarn.lock", name:"yarn", exe:process.platform === "win32" ? "yarn.cmd" : "yarn", args:["install","--frozen-lockfile","--ignore-scripts"], display:"yarn install --frozen-lockfile --ignore-scripts" }
-    ].find((item) => lowerManifests.includes((prefix + item.lock).toLowerCase()));
-    if (manager) actions.push(makeAction(manager.name + "-install-" + actions.length,
-      "Restaurar dependencias de " + manager.name,
-      "Usa el lockfile existente y desactiva scripts de instalación de terceros.",
-      manager.exe, manager.args, path.join(report.root, dir === "." ? "" : dir), manager.display));
+    const lockfiles = report.packageLockfiles[dir] ?? [];
+    const declared = report.packageManagerHints[dir];
+    if (lockfiles.length !== 1) {
+      manualSteps.push("Node.js (" + dir + "): " +
+        (lockfiles.length ? "hay varios lockfiles y no se elegirá un gestor automáticamente." : "no se encontró un lockfile compatible."));
+      continue;
+    }
+    const lockName = path.posix.basename(lockfiles[0]).toLowerCase();
+    const lockManager = lockName === "package-lock.json" || lockName === "npm-shrinkwrap.json" ? "npm"
+      : lockName === "pnpm-lock.yaml" ? "pnpm" : "yarn";
+    const declaredManager = declared?.split("@")[0];
+    if (declared === "unsupported") {
+      manualSteps.push("Node.js (" + dir + "): packageManager declara un gestor no compatible; no se ejecutará una instalación automática.");
+      continue;
+    }
+    if (declaredManager && declaredManager !== lockManager) {
+      manualSteps.push("Node.js (" + dir + "): packageManager y el lockfile no coinciden; revisa el manifiesto antes de instalar.");
+      continue;
+    }
+    let args: string[];
+    let display: string;
+    if (lockManager === "npm") {
+      args = ["ci", "--ignore-scripts"];
+      display = "npm ci --ignore-scripts";
+    } else if (lockManager === "pnpm") {
+      args = ["install", "--frozen-lockfile", "--ignore-scripts"];
+      display = "pnpm install --frozen-lockfile --ignore-scripts";
+    } else if (declared?.startsWith("yarn@") && Number(declared.split("@")[1]) >= 2 ||
+      report.yarnBerryDirectories.includes(dir)) {
+      args = ["install", "--immutable", "--mode=skip-builds"];
+      display = "yarn install --immutable --mode=skip-builds";
+    } else {
+      args = ["install", "--frozen-lockfile", "--ignore-scripts"];
+      display = "yarn install --frozen-lockfile --ignore-scripts";
+    }
+    const executable = process.platform === "win32" ? lockManager + ".cmd" : lockManager;
+    actions.push(makeAction(lockManager + "-install-" + actions.length,
+      "Restaurar dependencias de " + lockManager,
+      "Usa el único lockfile detectado y evita ejecutar scripts o builds de dependencias.",
+      executable, args, path.join(report.root, dir === "." ? "" : dir), display));
   }
   for (const dir of report.composerDirectories) {
     const lock = (dir === "." ? "" : dir + "/") + "composer.lock";

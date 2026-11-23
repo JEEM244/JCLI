@@ -182,3 +182,59 @@ test("detiene el plan después de la primera restauración fallida", async () =>
   assert.deepEqual(calls, ["first"]);
   assert.equal(results.length, 1);
 });
+
+
+test("respeta packageManager y se detiene ante lockfiles contradictorios", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-manager-"));
+  try {
+    await writeFile(path.join(root, "package.json"), JSON.stringify({
+      name: "web-app", packageManager: "pnpm@9.15.4"
+    }));
+    await writeFile(path.join(root, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+    const report = await inspectProjectForSetup(root);
+    const plan = createSetupPlan(report);
+    assert.equal(report.packageManagerHints["."], "pnpm@9");
+    assert.ok(plan.actions.some((item) => item.command === "pnpm install --frozen-lockfile --ignore-scripts"));
+    assert.ok(!plan.actions.some((item) => item.command === "npm ci --ignore-scripts"));
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("no elige gestor automáticamente cuando existen varios lockfiles", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-lock-conflict-"));
+  try {
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "ambiguous" }));
+    await writeFile(path.join(root, "package-lock.json"), "{}");
+    await writeFile(path.join(root, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+    const report = await inspectProjectForSetup(root);
+    const plan = createSetupPlan(report);
+    assert.equal(plan.actions.filter((item) => ["npm","pnpm","yarn"].some((manager) => item.id.startsWith(manager + "-install-"))).length, 0);
+    assert.ok(plan.manualSteps.some((step) => step.includes("varios lockfiles")));
+    assert.ok(report.warnings.some((warning) => warning.includes("varios lockfiles")));
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("distingue Yarn Berry y desactiva sus builds al restaurar", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-yarn-berry-"));
+  try {
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "berry", packageManager: "yarn@4.5.0" }));
+    await writeFile(path.join(root, "yarn.lock"), "__metadata:\n  version: 8\n");
+    const report = await inspectProjectForSetup(root);
+    assert.ok(report.yarnBerryDirectories.includes("."));
+    const action = createSetupPlan(report).actions.find((item) => item.id.startsWith("yarn-install-"));
+    assert.ok(action);
+    assert.deepEqual(action.args, ["install", "--immutable", "--mode=skip-builds"]);
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("rechaza packageManager no compatible aunque exista un lockfile", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-manager-unsupported-"));
+  try {
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "web", packageManager: "bun@1.2.0" }));
+    await writeFile(path.join(root, "bun.lockb"), "binary");
+    await writeFile(path.join(root, "package-lock.json"), "{}");
+    const report = await inspectProjectForSetup(root);
+    const plan = createSetupPlan(report);
+    assert.ok(!plan.actions.some((item) => item.id.startsWith("npm-install-")));
+    assert.ok(plan.manualSteps.some((step) => step.includes("gestor no compatible")));
+  } finally { await rm(root, { recursive:true, force:true }); }
+});

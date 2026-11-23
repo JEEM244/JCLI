@@ -202,3 +202,12 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 - [x] Detener las acciones posteriores cuando falle una restauración previa.
 - [x] Añadir pruebas para los lockfiles, restricciones Python y orden de ejecución.
 - [ ] Añadir soporte Java Maven/Gradle y gestores Python lockfile-first después de validar sus límites de ejecución.
+
+
+## V0.17.0 — Selección segura del gestor JavaScript
+
+- [x] Leer el campo \`packageManager\` del \`package.json\`.
+- [x] Agrupar lockfiles por carpeta y evitar instalaciones si existen varios lockfiles.
+- [x] Rechazar gestores no compatibles en lugar de elegir npm como alternativa.
+- [x] Distinguir Yarn clásico y Yarn Berry y usar sus opciones inmutables correspondientes.
+- [x] Añadir avisos de conflictos durante el análisis y casos de prueba.
