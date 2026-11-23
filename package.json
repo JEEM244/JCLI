@@ -1,8 +1,8 @@
 {
   "name": "jcli",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
-  "description": "Centro de control local para proyectos, tareas e integraciones de IA.",
+  "description": "Centro de control local para proyectos, automatización segura de entornos e integraciones de IA.",
   "type": "module",
   "bin": {
     "troc": "./dist/index.js"

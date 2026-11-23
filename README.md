@@ -52,6 +52,12 @@ troc project open WEB
 troc project analyze WEB
 troc project git WEB
 
+# Configurador de proyectos
+troc setup inspect "C:\\Proyectos\\MVCConexion_5L1"
+troc setup plan "C:\\Proyectos\\MVCConexion_5L1"
+troc setup run "C:\\Proyectos\\MVCConexion_5L1" --confirm
+troc setup report "C:\\Proyectos\\MVCConexion_5L1"
+
 # Visual Studio 2026, Visual Studio Code y SQL Server Management Studio 22
 troc ide vscode detect
 troc ide vs2026 detect
@@ -131,6 +137,26 @@ troc history 50
 ```
 
 ## Entorno de desarrollo
+
+## JCLI Project Setup
+
+El configurador recibe una ruta local y analiza lenguajes, frameworks, manifiestos, soluciones .NET, proyectos SQL, migraciones, scripts, respaldos y referencias de bases de datos. No es necesario registrar el proyecto primero.
+
+```powershell
+troc setup inspect "C:\Proyectos\MVCConexion_5L1"
+troc setup plan "C:\Proyectos\MVCConexion_5L1"
+troc setup run "C:\Proyectos\MVCConexion_5L1" --confirm
+troc setup report "C:\Proyectos\MVCConexion_5L1"
+```
+
+- inspect y report solo leen el proyecto y no muestran valores de cadenas de conexión.
+- plan separa las restauraciones automáticas de los pasos manuales para Visual Studio 2026, SSMS 22 y bases de datos.
+- run --confirm puede restaurar paquetes .NET, npm/pnpm/yarn y Composer si encuentra los manifiestos y lockfiles adecuados. Desactiva scripts de instalación de terceros cuando el gestor lo permite.
+- Python se reconoce, pero la creación del entorno virtual y la instalación de paquetes siguen siendo manuales en esta primera etapa.
+- No se ejecutan SQL, migraciones, compilaciones ni restauraciones de respaldos. Tampoco se crean, modifican o eliminan bases de datos.
+- El análisis tiene límites de profundidad y cantidad de archivos para no recorrer carpetas de dependencias y resultados de compilación.
+
+Revisa el plan antes de confirmar: las restauraciones descargan paquetes y pueden crear o modificar carpetas de dependencias y archivos generados. No se ejecutan scripts del proyecto.
 
 JCLI detecta herramientas y propone comandos basándose en archivos del proyecto. No instala dependencias automáticamente.
 

@@ -111,6 +111,20 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [x] Detectar proyectos .sqlproj SDK-style y proponer solo compilación compatible.
 - [x] Identificar proyectos SSDT clásicos sin inventar comandos build/test.
 
+## V0.11 — JCLI Project Setup (primera etapa)
+- [x] Recibir una ruta local sin registrar el proyecto.
+- [x] Analizar lenguajes, frameworks, manifiestos, soluciones .NET y proyectos SQL.
+- [x] Detectar proveedores de Entity Framework, motores SQL y nombres de ConnectionStrings sin mostrar sus valores.
+- [x] Detectar scripts SQL, migraciones y respaldos.
+- [x] Generar un plan que separa restauraciones automatizables de pasos manuales.
+- [x] Restaurar dependencias con lockfile para .NET, npm/pnpm/yarn y Composer con confirmación explícita.
+- [x] Desactivar scripts de instalación de paquetes cuando el gestor lo permite.
+- [x] Mantener SQL, migraciones y respaldos como acciones manuales.
+- [ ] Detectar SDK instalados, instancias SQL Server y servicios MySQL en tiempo real.
+- [ ] Preparar perfiles locales y cadenas de conexión sin sobrescribir configuraciones.
+- [ ] Validar soluciones en Visual Studio 2026 y flujos de SSMS 22.
+- [ ] Diagnosticar errores y reparar configuraciones con reversión.
+
 ## Principios
 
 - Priorizar Windows 11 y PowerShell 7.

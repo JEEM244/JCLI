@@ -26,6 +26,7 @@ import { analyzeProject } from "./projects/projectAnalyzer.js";
 import { inspectGit } from "./projects/gitInspector.js";
 import { detectVSCode, detectVisualStudio2026, detectSSMS22 } from "./integrations/ide/detector.js";
 import { inspectSqlScript } from "./integrations/ide/ssms22Integration.js";
+import { runSetupCommand } from "./setup/projectSetup.js";
 import type { Task, TaskPriority, TaskStatus } from "./types.js";
 
 const store = new TaskStore();
@@ -70,6 +71,10 @@ function help(): void {
     "  troc project open <ID>",
     "  troc project analyze <ID>",
     "  troc project git <ID>",
+    "  troc setup inspect <RUTA>",
+    "  troc setup plan <RUTA>",
+    "  troc setup run <RUTA> --confirm",
+    "  troc setup report <RUTA>",
     "  troc dev inspect <ID_PROYECTO>",
     "  troc dev plan <ID_PROYECTO> <build|test>",
     "  troc dev run <ID_PROYECTO> <build|test> --confirm",
@@ -301,6 +306,8 @@ async function listTasks(args: string[]): Promise<void> {
 export async function runCli(args: string[]): Promise<void> {
   const [group, action, ...rest] = args;
   if (!group || group === "help" || group === "--help" || group === "-h") return help();
+
+  if (group === "setup") return runSetupCommand(action, rest);
 
   if (group === "init") {
     await store.initialize();
