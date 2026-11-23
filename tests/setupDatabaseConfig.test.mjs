@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { inspectConnectionString } from "../dist/setup/projectSetup.js";
+import { inspectConnectionString, inspectProjectForSetup, inspectDatabaseConfiguration } from "../dist/setup/projectSetup.js";
+import { mkdtemp, rm, writeFile, symlink } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 test("resume una conexión SQL Server sin exponer credenciales", () => {
   const profile=inspectConnectionString("DefaultConnection","appsettings.json",
@@ -67,4 +70,46 @@ test("no marca credenciales si solo aparece una contraseña sin usuario", () => 
   assert.equal(profile.portConfigured, true);
   assert.equal(profile.databaseConfigured, true);
   assert.equal(profile.authentication, "unspecified");
+});
+
+
+test("inspecta perfiles MySQL y PostgreSQL desde appsettings sin revelar valores", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-connection-inventory-"));
+  try {
+    await writeFile(path.join(root, "appsettings.json"), JSON.stringify({
+      ConnectionStrings: {
+        MySql: "Server=db.internal;Port=3306;Database=store;Uid=app;Pwd=secret;",
+        Postgres: "Host=pg.internal;Port=5432;Database=school;Username=app;Password=secret;"
+      }
+    }));
+    const inspection = await inspectProjectForSetup(root);
+    const profiles = await inspectDatabaseConfiguration(inspection);
+    assert.deepEqual(profiles.map((item) => item.name), ["MySql", "Postgres"]);
+    assert.ok(profiles.every((item) => item.serverConfigured && item.portConfigured && item.databaseConfigured));
+    assert.ok(profiles.every((item) => item.authentication === "credentials"));
+    assert.equal(JSON.stringify(profiles).includes("db.internal"), false);
+    assert.equal(JSON.stringify(profiles).includes("secret"), false);
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("no lee appsettings enlazado a un archivo fuera del proyecto", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-connection-link-"));
+  const outside = await mkdtemp(path.join(os.tmpdir(), "jcli-connection-outside-"));
+  try {
+    await writeFile(path.join(outside, "external.json"), JSON.stringify({
+      ConnectionStrings: { External: "Host=private.host;Port=5432;Database=private;Username=user;" }
+    }));
+    try {
+      await symlink(path.join(outside, "external.json"), path.join(root, "appsettings.json"), "file");
+    } catch {
+      return;
+    }
+    const profiles = await inspectDatabaseConfiguration({
+      root, connectionFiles: ["appsettings.json"]
+    });
+    assert.deepEqual(profiles, []);
+  } finally {
+    await rm(root, { recursive:true, force:true });
+    await rm(outside, { recursive:true, force:true });
+  }
 });

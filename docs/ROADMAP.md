@@ -296,3 +296,11 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 ## V0.22.1 — Alineación de pruebas de informes
 
 - [x] Actualizar la prueba del informe JSON a la nueva clasificación genérica `credentials` para perfiles con usuario.
+
+
+## V0.22.2 — Correcciones y protección del inventario
+
+- [x] Alinear la prueba integral de `setup all` con el mensaje multi-motor.
+- [x] Alinear los informes JSON con la clasificación `credentials`.
+- [x] Resolver la ruta real de archivos `appsettings` y omitir enlaces que escapen del proyecto.
+- [x] Probar la detección integral de perfiles MySQL/PostgreSQL y el rechazo de enlaces externos.

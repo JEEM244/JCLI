@@ -773,12 +773,20 @@ function collectConnectionProfiles(value:unknown,file:string,profiles:DatabaseCo
 }
 export async function inspectDatabaseConfiguration(report:SetupInspection):Promise<DatabaseConnectionProfile[]>{
   const profiles:DatabaseConnectionProfile[]=[];
+  const root=await realpath(report.root);
   for(const file of report.connectionFiles){
-    const absolute=path.resolve(report.root,file);
-    const relative=path.relative(report.root,absolute);
+    const absolute=path.resolve(root,file);
+    const relative=path.relative(root,absolute);
     if(relative===".."||relative.startsWith(".."+path.sep)||path.isAbsolute(relative))continue;
-    try{const content=await readManifest(absolute);if(content)collectConnectionProfiles(JSON.parse(content) as unknown,file,profiles);}
-    catch{/* Configuración inválida: se omite sin mostrar su contenido. */}
+    try{
+      const actual=await realpath(absolute);
+      const actualRelative=path.relative(root,actual);
+      if(actualRelative===".."||actualRelative.startsWith(".."+path.sep)||path.isAbsolute(actualRelative))continue;
+      const info=await stat(actual);
+      if(!info.isFile())continue;
+      const content=await readManifest(actual);
+      if(content)collectConnectionProfiles(JSON.parse(content) as unknown,file,profiles);
+    }catch{/* Configuración inválida o fuera del proyecto: se omite sin mostrar su contenido. */}
   }
   return profiles.sort((a,b)=>a.file.localeCompare(b.file)||a.name.localeCompare(b.name));
 }
