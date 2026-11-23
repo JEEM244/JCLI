@@ -122,8 +122,8 @@ export async function detectToolchain(projectId: string, directory: string): Pro
     try {
       const sqlProjectText = await readFile(sqlProject, "utf8");
       const usesSqlSdk =
-        /<Project\\b[^>]*\\bSdk\\s*=\\s*["'][^"']*Microsoft\\.Build\\.Sql/i.test(sqlProjectText) ||
-        /<Sdk\\b[^>]*\\bName\\s*=\\s*["']Microsoft\\.Build\\.Sql/i.test(sqlProjectText);
+        /<Project\b[^>]*\bSdk\s*=\s*["'][^"']*Microsoft\.Build\.Sql/i.test(sqlProjectText) ||
+        /<Sdk\b[^>]*\bName\s*=\s*["']Microsoft\.Build\.Sql/i.test(sqlProjectText);
       if (usesSqlSdk) {
         commands.push({
           tool: "dotnet",
