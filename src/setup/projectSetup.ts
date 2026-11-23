@@ -1,6 +1,10 @@
 import { spawn } from "node:child_process";
 import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { detectVSCode, detectVisualStudio2026, detectSSMS22 } from "../integrations/ide/detector.js";
+const execFileAsync = promisify(execFile);
 
 const IGNORED = new Set([".git", ".vs", ".idea", "node_modules", "vendor", "dist", "build", "coverage", "bin", "obj", ".venv", "venv", "__pycache__"]);
 const MAX_FILES = 5000;
@@ -311,6 +315,161 @@ export async function executeSetupPlan(plan: SetupPlan, confirmed: boolean, runn
   return results;
 }
 
+
+export interface ToolRequirement { id:string; name:string; commands:string[]; required:boolean; versionArgs?:string[]; note:string; }
+export interface ToolCheck { id:string; name:string; required:boolean; installed:boolean; executable?:string; version?:string; note:string; }
+export interface DatabaseServiceCheck { engine:string; serviceName?:string; state:"running"|"stopped"|"missing"|"unknown"; details:string; }
+export interface SetupDoctorReport {
+  inspection:SetupInspection; tools:ToolCheck[];
+  ides:Array<{name:string;installed:boolean;executable?:string;details:string}>;
+  databaseServices:DatabaseServiceCheck[]; missingRequired:string[];
+}
+
+export function buildToolRequirements(report:SetupInspection,platform=process.platform):ToolRequirement[] {
+  const items=new Map<string,ToolRequirement>();
+  const add=(item:ToolRequirement):void=>{items.set(item.id,item);};
+  if(report.packageDirectories.length){
+    add({id:"node",name:"Node.js",commands:["node.exe","node"],required:true,versionArgs:["--version"],note:"Necesario para proyectos Node.js y Angular."});
+    const locks=report.manifests.map(file=>path.posix.basename(file).toLowerCase());
+    if(locks.includes("pnpm-lock.yaml")) add({id:"pnpm",name:"pnpm",commands:["pnpm.cmd","pnpm"],required:true,versionArgs:["--version"],note:"Gestor declarado por pnpm-lock.yaml."});
+    else if(locks.includes("yarn.lock")) add({id:"yarn",name:"Yarn",commands:["yarn.cmd","yarn"],required:true,versionArgs:["--version"],note:"Gestor declarado por yarn.lock."});
+    else add({id:"npm",name:"npm",commands:["npm.cmd","npm"],required:true,versionArgs:["--version"],note:"Gestor predeterminado para package.json."});
+  }
+  if(report.dotnetProjects.length) add({id:"dotnet",name:".NET SDK",commands:["dotnet.exe","dotnet"],required:true,versionArgs:["--version"],note:"Necesario para proyectos .NET."});
+  if(report.composerDirectories.length){
+    add({id:"php",name:"PHP",commands:["php.exe","php"],required:true,versionArgs:["--version"],note:"Necesario para proyectos PHP."});
+    add({id:"composer",name:"Composer",commands:["composer.bat","composer"],required:true,note:"Necesario para dependencias PHP."});
+  }
+  if(report.requirements.includes("Python")) add({id:"python",name:"Python",commands:platform==="win32"?["py.exe","python.exe","py","python"]:["python3","python"],required:true,versionArgs:["--version"],note:"Necesario para proyectos Python."});
+  if(report.kinds.includes("Go")) add({id:"go",name:"Go",commands:["go.exe","go"],required:true,versionArgs:["version"],note:"Necesario para módulos Go."});
+  if(report.kinds.includes("Rust")){
+    add({id:"cargo",name:"Cargo",commands:["cargo.exe","cargo"],required:true,versionArgs:["--version"],note:"Gestor Rust."});
+    add({id:"rustc",name:"rustc",commands:["rustc.exe","rustc"],required:true,versionArgs:["--version"],note:"Compilador Rust."});
+  }
+  if(report.kinds.includes("Java")){
+    add({id:"java",name:"Java",commands:["java.exe","java"],required:true,versionArgs:["--version"],note:"Entorno de ejecución Java."});
+    add({id:"javac",name:"JDK / javac",commands:["javac.exe","javac"],required:true,versionArgs:["--version"],note:"Compilador del JDK."});
+  }
+  if(report.databaseEngines.includes("SQL Server")){
+    add({id:"sqlcmd",name:"sqlcmd",commands:["sqlcmd.exe","sqlcmd"],required:false,note:"Cliente opcional de SQL Server."});
+    add({id:"sqlpackage",name:"SqlPackage",commands:["sqlpackage.exe","sqlpackage"],required:false,note:"Herramienta opcional para paquetes DAC."});
+  }
+  if(report.databaseEngines.includes("MySQL")) add({id:"mysql-client",name:"Cliente MySQL",commands:["mysql.exe","mysql"],required:false,note:"Cliente opcional de MySQL."});
+  if(report.databaseEngines.includes("PostgreSQL")) add({id:"psql",name:"psql",commands:["psql.exe","psql"],required:false,note:"Cliente opcional de PostgreSQL."});
+  if(report.databaseEngines.includes("SQLite")) add({id:"sqlite3",name:"sqlite3",commands:["sqlite3.exe","sqlite3"],required:false,note:"Cliente opcional de SQLite."});
+  return [...items.values()];
+}
+
+async function locateCommand(commands:string[]):Promise<string|undefined>{
+  const resolver=process.platform==="win32"?"where.exe":"which";
+  for(const command of commands){
+    try{
+      const result=await execFileAsync(resolver,[command],{windowsHide:true,timeout:5000,maxBuffer:256*1024});
+      const found=String(result.stdout).split(/\r?\n/).map(line=>line.trim()).find(Boolean);
+      if(found)return found;
+    }catch{/* intenta el siguiente nombre */}
+  }
+  return undefined;
+}
+async function readToolVersion(executable:string,args:string[]):Promise<string|undefined>{
+  if(/\.(cmd|bat)$/i.test(executable))return undefined;
+  try{
+    const result=await execFileAsync(executable,args,{windowsHide:true,timeout:5000,maxBuffer:256*1024});
+    return (String(result.stdout)+"\n"+String(result.stderr)).split(/\r?\n/).map(line=>line.trim()).find(Boolean)?.slice(0,160);
+  }catch{return undefined;}
+}
+async function checkRequirement(item:ToolRequirement):Promise<ToolCheck>{
+  const executable=await locateCommand(item.commands);
+  if(!executable)return {id:item.id,name:item.name,required:item.required,installed:false,note:item.note};
+  const version=item.versionArgs?await readToolVersion(executable,item.versionArgs):undefined;
+  return {id:item.id,name:item.name,required:item.required,installed:true,executable,...(version?{version}:{}),note:item.note};
+}
+
+export function parseWindowsDatabaseServices(output:string,engines:string[]):DatabaseServiceCheck[]{
+  const patterns=[
+    {engine:"SQL Server",pattern:/^(?:MSSQLSERVER|MSSQL\$.+)$/i},
+    {engine:"MySQL",pattern:/^(?:MySQL\d*|MariaDB.*)$/i},
+    {engine:"PostgreSQL",pattern:/^postgresql.*$/i}
+  ];
+  const found:Array<{engine:string;name:string;state:"running"|"stopped"|"unknown"}>=[];
+  for(const block of output.split(/(?=^\s*SERVICE_NAME\s*:)/im)){
+    const name=block.match(/^\s*SERVICE_NAME\s*:\s*(.+?)\s*$/im)?.[1]?.trim();
+    if(!name)continue;
+    const kind=patterns.find(item=>item.pattern.test(name));
+    if(!kind||!engines.includes(kind.engine))continue;
+    const stateText=block.match(/^\s*STATE\s*:\s*\d+\s+([A-Z_]+)/im)?.[1]?.toUpperCase();
+    found.push({engine:kind.engine,name,state:stateText==="RUNNING"?"running":stateText==="STOPPED"?"stopped":"unknown"});
+  }
+  return engines.filter(engine=>patterns.some(item=>item.engine===engine)).map(engine=>{
+    const matches=found.filter(item=>item.engine===engine);
+    if(!matches.length)return {engine,state:"missing" as const,details:"No se encontró un servicio local; el servidor también podría ser remoto."};
+    const running=matches.filter(item=>item.state==="running");
+    return {engine,serviceName:running[0]?.name??matches[0].name,
+      state:running.length?"running":matches.every(item=>item.state==="stopped")?"stopped":"unknown",
+      details:matches.map(item=>item.name+" ("+item.state+")").join(", ")};
+  });
+}
+async function inspectDatabaseServices(engines:string[]):Promise<DatabaseServiceCheck[]>{
+  const supported=engines.filter(engine=>["SQL Server","MySQL","PostgreSQL"].includes(engine));
+  if(!supported.length)return [];
+  if(process.platform!=="win32")return supported.map(engine=>({engine,state:"unknown" as const,details:"La consulta de servicios locales usa el administrador de servicios de Windows."}));
+  try{
+    const result=await execFileAsync("sc.exe",["query","type=","service","state=","all"],{windowsHide:true,timeout:12000,maxBuffer:4*1024*1024});
+    return parseWindowsDatabaseServices(String(result.stdout),supported);
+  }catch{
+    return supported.map(engine=>({engine,state:"unknown" as const,details:"No fue posible consultar servicios locales; comprueba su estado manualmente."}));
+  }
+}
+export async function inspectProjectEnvironment(report:SetupInspection):Promise<SetupDoctorReport>{
+  const tools=await Promise.all(buildToolRequirements(report).map(checkRequirement));
+  const ides:SetupDoctorReport["ides"]=[];
+  if(report.solutions.length||report.dotnetProjects.length){
+    const ide=await detectVisualStudio2026();
+    ides.push({name:ide.name,installed:ide.installed,...(ide.executable?{executable:ide.executable}:{}),details:ide.details});
+  }
+  if(report.packageDirectories.length||report.kinds.some(kind=>["PHP / Composer","Python","Go","Rust"].includes(kind))){
+    const ide=await detectVSCode();
+    ides.push({name:ide.name,installed:ide.installed,...(ide.executable?{executable:ide.executable}:{}),details:ide.details});
+  }
+  if(report.databaseEngines.includes("SQL Server")||report.sqlProjects.length||report.sqlScripts.length){
+    const ide=await detectSSMS22();
+    ides.push({name:ide.name,installed:ide.installed,...(ide.executable?{executable:ide.executable}:{}),details:ide.details});
+  }
+  const databaseServices=await inspectDatabaseServices(report.databaseEngines);
+  return {inspection:report,tools,ides,databaseServices,missingRequired:tools.filter(item=>item.required&&!item.installed).map(item=>item.name)};
+}
+function printDoctor(report:SetupDoctorReport):void{
+  console.log("JCLI Project Setup — diagnóstico del entorno");
+  console.log("Proyecto: "+report.inspection.name+"\nHerramientas:");
+  if(!report.tools.length)console.log("  No hay toolchains que comprobar.");
+  for(const item of report.tools){
+    console.log("  ["+(item.installed?"DISPONIBLE":item.required?"FALTA":"NO DETECTADO (opcional)")+"] "+item.name+(item.required?" — requerido":" — opcional"));
+    if(item.version)console.log("    Versión: "+item.version);
+    if(item.executable)console.log("    Ruta: "+item.executable);
+    console.log("    "+item.note);
+  }
+  if(report.ides.length){
+    console.log("\nEditores:");
+    for(const ide of report.ides){
+      console.log("  ["+(ide.installed?"DISPONIBLE":"NO DETECTADO")+"] "+ide.name);
+      if(ide.executable)console.log("    "+ide.executable);
+      console.log("    "+ide.details);
+    }
+  }
+  if(report.databaseServices.length){
+    console.log("\nServicios de bases de datos:");
+    for(const service of report.databaseServices){
+      console.log("  ["+service.state.toUpperCase()+"] "+service.engine+(service.serviceName?" — "+service.serviceName:""));
+      console.log("    "+service.details);
+    }
+  }
+  console.log("\nResultado: "+(report.missingRequired.length?"faltan herramientas requeridas: "+report.missingRequired.join(", "):"no faltan herramientas requeridas detectables."));
+  if(report.inspection.databaseEngines.length){
+    console.log("Un servicio activo no demuestra que una base concreta exista o acepte conexiones.");
+    console.log("No se leyeron contraseñas, no se abrió conexión y no se ejecutó SQL.");
+  }
+}
+
 function printInspection(report: SetupInspection): void {
   console.log("JCLI Project Setup — análisis");
   console.log("Proyecto: " + report.name);
@@ -348,16 +507,18 @@ function printPlan(plan: SetupPlan): void {
   if (plan.actions.length) console.log('Para aplicar las restauraciones, ejecuta: troc setup run "' + plan.inspection.root + '" --confirm');
 }
 export async function runSetupCommand(actionName: string | undefined, args: string[]): Promise<void> {
-  if (!actionName || !["inspect","plan","run","report"].includes(actionName)) {
-    throw new Error("Uso: troc setup <inspect|plan|run|report> <RUTA> [--confirm].");
+  if (!actionName || !["inspect","plan","run","report","doctor"].includes(actionName)) {
+    throw new Error("Uso: troc setup <inspect|plan|run|report|doctor> <RUTA> [--confirm].");
   }
   if (!args[0]) throw new Error("Indica la ruta de la carpeta del proyecto.");
+  if (actionName === "doctor" && args.length !== 1) throw new Error("Doctor acepta una sola ruta de proyecto.");
   if (actionName === "run" && (args.length !== 2 || args[1] !== "--confirm")) {
     throw new Error('La ejecución requiere --confirm. Consulta primero: troc setup plan "' + args[0] + '".');
   }
   if (actionName !== "run" && args.length !== 1) throw new Error("Indica una sola ruta; usa comillas si contiene espacios.");
   const report = await inspectProjectForSetup(args[0]);
   if (actionName === "inspect" || actionName === "report") { printInspection(report); return; }
+  if (actionName === "doctor") { printDoctor(await inspectProjectEnvironment(report)); return; }
   const plan = createSetupPlan(report);
   if (actionName === "plan") { printPlan(plan); return; }
   printPlan(plan);

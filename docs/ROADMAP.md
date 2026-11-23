@@ -125,6 +125,17 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [ ] Validar soluciones en Visual Studio 2026 y flujos de SSMS 22.
 - [ ] Diagnosticar errores y reparar configuraciones con reversión.
 
+## V0.12 — Diagnóstico del entorno y motores locales
+- [x] Comprobar herramientas requeridas por los manifiestos (Node/npm, .NET, PHP/Composer, Python, Go, Rust y Java).
+- [x] Consultar versiones de ejecutables compatibles y mostrar sus rutas.
+- [x] Detectar Visual Studio 2026, VS Code y SSMS 22 cuando el tipo de proyecto lo requiere.
+- [x] Consultar servicios locales SQL Server, MySQL y PostgreSQL en Windows, con estados activo/detenido/no detectado.
+- [x] Separar herramientas requeridas de utilidades opcionales.
+- [x] Mantener el diagnóstico como operación de solo lectura, sin credenciales ni conexiones a bases de datos.
+- [ ] Probar una conexión a una base concreta con credenciales introducidas localmente y consentimiento explícito.
+- [ ] Preparar perfiles locales de conexión sin mostrar ni guardar contraseñas en texto plano.
+- [ ] Guiar instalación de SDK y cargas de trabajo de Visual Studio sin elevación automática.
+
 ## Principios
 
 - Priorizar Windows 11 y PowerShell 7.

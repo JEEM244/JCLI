@@ -57,6 +57,7 @@ troc setup inspect "C:\Proyectos\MVCConexion_5L1"
 troc setup plan "C:\Proyectos\MVCConexion_5L1"
 troc setup run "C:\Proyectos\MVCConexion_5L1" --confirm
 troc setup report "C:\Proyectos\MVCConexion_5L1"
+troc setup doctor "C:\Proyectos\MVCConexion_5L1"
 
 # Visual Studio 2026, Visual Studio Code y SQL Server Management Studio 22
 troc ide vscode detect
@@ -155,6 +156,13 @@ troc setup report "C:\Proyectos\MVCConexion_5L1"
 - El análisis tiene límites de profundidad y cantidad de archivos para no recorrer carpetas de dependencias y resultados de compilación.
 
 Revisa el plan antes de confirmar: las restauraciones descargan paquetes y pueden crear o modificar carpetas de dependencias y archivos generados. En particular, npm ci reemplaza node_modules. No se ejecutan scripts del proyecto.
+
+
+### Diagnóstico del equipo
+
+`troc setup doctor "RUTA"` comprueba herramientas requeridas por el proyecto (Node.js/npm, .NET, PHP/Composer, Python, Go, Rust o Java), busca Visual Studio 2026, VS Code y SSMS 22 cuando aplican, y consulta servicios locales de SQL Server, MySQL o PostgreSQL en Windows.
+
+La detección de un servicio no demuestra que una base concreta exista, que el usuario tenga permisos o que la conexión funcione. El diagnóstico no usa credenciales, no se conecta a motores ni ejecuta SQL. Los servidores remotos no aparecen como servicios locales.
 
 ## Entorno de desarrollo
 
