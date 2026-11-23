@@ -222,3 +222,13 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 
 - [x] Reconocer versiones semánticas de npm, pnpm y Yarn sin depender de escapes de regex.
 - [x] Validar pnpm y Yarn Berry en CI con lockfiles de prueba.
+
+
+## V0.18.0 — Preparación integral desde una sola ruta
+
+- [x] Añadir \`troc setup all <RUTA>\` para agrupar inspección, diagnóstico, inventario de conexiones y plan.
+- [x] Mantener el modo predeterminado de solo lectura.
+- [x] Permitir \`--confirm\` para ejecutar únicamente restauraciones ya incluidas en el plan.
+- [x] Mantener la prueba real de SQL Server, las migraciones y los cambios de base de datos como pasos separados.
+- [x] Detener el flujo ante una restauración fallida y mostrar resultados.
+- [x] Añadir pruebas de preflight y validación de argumentos.

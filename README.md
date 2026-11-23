@@ -53,6 +53,8 @@ troc project analyze WEB
 troc project git WEB
 
 # Configurador de proyectos
+troc setup all "C:\Proyectos\MVCConexion_5L1"
+troc setup all "C:\Proyectos\MVCConexion_5L1" --confirm
 troc setup inspect "C:\Proyectos\MVCConexion_5L1"
 troc setup plan "C:\Proyectos\MVCConexion_5L1"
 troc setup run "C:\Proyectos\MVCConexion_5L1" --confirm
@@ -143,6 +145,8 @@ troc history 50
 
 El configurador recibe una ruta local y analiza lenguajes, frameworks, manifiestos, soluciones .NET, proyectos SQL, migraciones, scripts, respaldos y referencias de bases de datos. No es necesario registrar el proyecto primero.
 
+`troc setup all "RUTA"` reúne inspección, diagnóstico de herramientas y editores, inventario de conexiones y plan de restauración. Por defecto es de solo lectura. Al añadir `--confirm`, ejecuta solo las restauraciones conocidas del plan; no crea bases de datos, no ejecuta SQL ni migraciones y no sustituye la prueba explícita `db-test`.
+
 ```powershell
 troc setup inspect "C:\Proyectos\MVCConexion_5L1"
 troc setup plan "C:\Proyectos\MVCConexion_5L1"
@@ -152,7 +156,7 @@ troc setup report "C:\Proyectos\MVCConexion_5L1"
 
 - inspect y report solo leen el proyecto y no muestran valores de cadenas de conexión.
 - plan separa las restauraciones automáticas de los pasos manuales para Visual Studio 2026, SSMS 22 y bases de datos.
-- run --confirm puede restaurar paquetes .NET, npm/pnpm/yarn y Composer si encuentra los manifiestos y lockfiles adecuados. Desactiva scripts de instalación de terceros cuando el gestor lo permite.
+- run --confirm puede restaurar .NET, Composer y dependencias JavaScript, Python, Go y Rust cuando encuentra sus lockfiles y condiciones de seguridad. En JavaScript respeta `packageManager` y no elige entre lockfiles contradictorios.
 - Python: JCLI crea `.venv` cuando no existe. Solo instala automáticamente un `requirements.txt` si todas las dependencias tienen versión exacta y hash SHA-256; usa `pip --require-hashes --only-binary=:all:` para evitar compilar paquetes desde código fuente. Si no cumple el formato estricto, deja la instalación como paso manual.
 - Go: `go mod download` requiere `go.sum`. Rust: `cargo fetch --locked` requiere `Cargo.lock`; ambas operaciones solo descargan dependencias y no compilan el proyecto.
 - No se ejecutan SQL, migraciones, compilaciones ni restauraciones de respaldos. Tampoco se crean, modifican o eliminan bases de datos.

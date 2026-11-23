@@ -778,18 +778,21 @@ function printPlan(plan: SetupPlan): void {
   if (plan.actions.length) console.log('Para aplicar las restauraciones, ejecuta: troc setup run "' + plan.inspection.root + '" --confirm');
 }
 export async function runSetupCommand(actionName: string | undefined, args: string[]): Promise<void> {
-  if (!actionName || !["inspect","plan","run","report","doctor","db-config","db-test"].includes(actionName)) {
-    throw new Error("Uso: troc setup <inspect|plan|run|report|doctor|db-config|db-test> <RUTA> [PERFIL] [--confirm].");
+  if (!actionName || !["inspect","plan","run","report","doctor","db-config","db-test","all"].includes(actionName)) {
+    throw new Error("Uso: troc setup <all|inspect|plan|run|report|doctor|db-config|db-test> <RUTA> [PERFIL] [--confirm].");
   }
   if (!args[0]) throw new Error("Indica la ruta de la carpeta del proyecto.");
   if ((actionName === "doctor" || actionName === "db-config") && args.length !== 1) throw new Error("Este diagnóstico acepta una sola ruta de proyecto.");
+  if (actionName === "all" && (args.length > 2 || (args.length === 2 && args[1] !== "--confirm"))) {
+    throw new Error('Uso: troc setup all "' + args[0] + '" [--confirm]. Sin --confirm solo genera los diagnósticos; con --confirm ejecuta las restauraciones admitidas.');
+  }
   if (actionName === "db-test" && (args.length !== 3 || args[2] !== "--confirm")) {
     throw new Error('La prueba requiere --confirm. Primero consulta troc setup db-config "' + args[0] + '" y después usa troc setup db-test "' + args[0] + '" NOMBRE --confirm.');
   }
   if (actionName === "run" && (args.length !== 2 || args[1] !== "--confirm")) {
     throw new Error('La ejecución requiere --confirm. Consulta primero: troc setup plan "' + args[0] + '".');
   }
-  if (actionName !== "run" && actionName !== "db-test" && args.length !== 1) throw new Error("Indica una sola ruta; usa comillas si contiene espacios.");
+  if (actionName !== "run" && actionName !== "db-test" && actionName !== "all" && args.length !== 1) throw new Error("Indica una sola ruta; usa comillas si contiene espacios.");
   const report = await inspectProjectForSetup(args[0]);
   if (actionName === "inspect" || actionName === "report") { printInspection(report); return; }
   if (actionName === "doctor") { printDoctor(await inspectProjectEnvironment(report)); return; }
@@ -801,6 +804,36 @@ export async function runSetupCommand(actionName: string | undefined, args: stri
     console.log("Duración: " + result.durationMs + " ms");
     if (result.status === "success") console.log("La consulta fija SELECT 1 respondió correctamente. No se modificó la base de datos.");
     else console.log("No se obtuvo confirmación de conexión. Revisa el servicio, la instancia, los permisos y el certificado; no se muestran detalles de conexión.");
+    return;
+  }
+  if (actionName === "all") {
+    printInspection(report);
+    printDoctor(await inspectProjectEnvironment(report));
+    printDatabaseConfiguration(await inspectDatabaseConfiguration(report));
+    const fullPlan = createSetupPlan(report);
+    printPlan(fullPlan);
+    if (args[1] !== "--confirm") {
+      console.log("\nNo se ejecutó ninguna acción ni se modificó el proyecto.");
+      console.log('Para ejecutar únicamente las restauraciones admitidas, vuelve a usar: troc setup all "' + args[0] + '" --confirm');
+      console.log("Las pruebas de conexión SQL, migraciones y cambios de base de datos siguen requiriendo comandos separados y explícitos.");
+      return;
+    }
+    if (!fullPlan.actions.length) {
+      console.log("\nNo hay restauraciones automáticas disponibles; revisa los pasos manuales.");
+      return;
+    }
+    console.log("\nSe ejecutarán las restauraciones conocidas del plan. No se ejecutarán SQL ni migraciones.");
+    const fullResults = await executeSetupPlan(fullPlan, true);
+    console.log("\nResultados:");
+    for (const result of fullResults) {
+      console.log("[" + result.status + "] " + result.title + " — " + result.durationMs + " ms; código " +
+        (result.exitCode === null ? "sin código" : result.exitCode));
+      if (result.stdout) console.log(result.stdout);
+      if (result.stderr) console.log("Salida de error:\n" + result.stderr);
+    }
+    if (fullResults.some((item) => item.status !== "success")) {
+      throw new Error("Una o más restauraciones fallaron; las acciones posteriores se detuvieron.");
+    }
     return;
   }
   const plan = createSetupPlan(report);

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { inspectProjectForSetup, createSetupPlan, executeSetupPlan, isHashLockedPythonRequirements } from "../dist/setup/projectSetup.js";
+import { inspectProjectForSetup, createSetupPlan, executeSetupPlan, isHashLockedPythonRequirements, runSetupCommand } from "../dist/setup/projectSetup.js";
 
 test("analiza ASP.NET MVC y SQL Server sin exponer valores de conexión", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-mvc-"));
@@ -236,5 +236,31 @@ test("rechaza packageManager no compatible aunque exista un lockfile", async () 
     const plan = createSetupPlan(report);
     assert.ok(!plan.actions.some((item) => item.id.startsWith("npm-install-")));
     assert.ok(plan.manualSteps.some((step) => step.includes("gestor no compatible")));
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+
+test("setup all ofrece un preflight completo sin modificar el proyecto por defecto", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-all-"));
+  const originalLog = console.log;
+  const output = [];
+  try {
+    await writeFile(path.join(root, "README.txt"), "proyecto de prueba");
+    console.log = (...items) => output.push(items.join(" "));
+    await runSetupCommand("all", [root]);
+    const rendered = output.join("\n");
+    assert.ok(rendered.includes("No se ejecutó ninguna acción"));
+    assert.ok(rendered.includes("No se detectaron perfiles") || rendered.includes("No hay perfiles"));
+  } finally {
+    console.log = originalLog;
+    await rm(root, { recursive:true, force:true });
+  }
+});
+
+test("setup all exige confirmación válida antes de aceptar ejecución", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-all-args-"));
+  try {
+    await assert.rejects(runSetupCommand("all", [root, "--force"]), /Uso: troc setup all/);
+    await assert.rejects(runSetupCommand("all", [root, "--confirm", "extra"]), /Uso: troc setup all/);
   } finally { await rm(root, { recursive:true, force:true }); }
 });

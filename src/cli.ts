@@ -71,6 +71,7 @@ function help(): void {
     "  troc project open <ID>",
     "  troc project analyze <ID>",
     "  troc project git <ID>",
+    "  troc setup all <RUTA> [--confirm]",
     "  troc setup inspect <RUTA>",
     "  troc setup plan <RUTA>",
     "  troc setup run <RUTA> --confirm",
