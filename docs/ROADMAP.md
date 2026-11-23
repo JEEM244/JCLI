@@ -216,3 +216,9 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 ## V0.17.1 — Corrección de inicialización
 
 - [x] Inicializar el inventario de lockfiles antes de recorrerlo; la compilación TypeScript vuelve a ejecutarse en CI.
+
+
+## V0.17.2 — Corrección de versiones packageManager
+
+- [x] Reconocer versiones semánticas de npm, pnpm y Yarn sin depender de escapes de regex.
+- [x] Validar pnpm y Yarn Berry en CI con lockfiles de prueba.

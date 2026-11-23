@@ -172,7 +172,7 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
           packageManager?: string;
         };
         if (parsed.packageManager) {
-          const declared = parsed.packageManager.match(/^(npm|pnpm|yarn)@(d+)(?:.|$)/i);
+          const declared = parsed.packageManager.match(/^(npm|pnpm|yarn)@([0-9]+)(?:[.]|$)/i);
           packageManagerHints[dir] = declared
             ? declared[1].toLowerCase() + "@" + declared[2]
             : "unsupported";
