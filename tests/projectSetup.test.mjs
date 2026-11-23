@@ -463,3 +463,26 @@ test("rechaza guardar .vsconfig fuera del proyecto mediante un enlace simbólico
     await rm(outside, { recursive:true, force:true });
   }
 });
+
+
+test("el comando setup vsconfig requiere confirmación y genera el archivo de configuración", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-vsconfig-command-"));
+  const originalLog = console.log;
+  const output = [];
+  try {
+    await writeFile(path.join(root, "Web.csproj"), '<Project Sdk="Microsoft.NET.Sdk.Web" />');
+    await assert.rejects(runSetupCommand("vsconfig", [root]), /requiere --confirm/);
+    await assert.rejects(runSetupCommand("vsconfig", [root, "--confirm", "extra"]), /requiere --confirm/);
+    console.log = (...items) => output.push(items.join(" "));
+    await runSetupCommand("vsconfig", [root, "--confirm"]);
+    const { readdir, readFile: readConfig } = await import("node:fs/promises");
+    const names = await readdir(path.join(root, ".troc", "configs"));
+    assert.equal(names.length, 1);
+    const config = JSON.parse(await readConfig(path.join(root, ".troc", "configs", names[0]), "utf8"));
+    assert.ok(config.components.includes("Microsoft.VisualStudio.ComponentGroup.WebToolsExtensions"));
+    assert.ok(output.join("\n").includes("Importar configuración"));
+  } finally {
+    console.log = originalLog;
+    await rm(root, { recursive:true, force:true });
+  }
+});

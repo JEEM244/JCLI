@@ -275,3 +275,9 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 - [x] Rechazar rutas simbólicas que intenten sacar la configuración del proyecto.
 - [x] Explicar el paso de importación manual en Visual Studio Installer.
 - [x] Añadir pruebas de formato, componentes, colisiones y seguridad de rutas.
+
+
+## V0.21.1 — Corrección de validación del comando .vsconfig
+
+- [x] Permitir la ruta y `--confirm` en el validador general de argumentos.
+- [x] Añadir una prueba de extremo a extremo del comando `troc setup vsconfig`.

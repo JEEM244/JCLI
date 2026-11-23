@@ -1067,7 +1067,7 @@ export async function runSetupCommand(actionName: string | undefined, args: stri
   if (actionName === "run" && (args.length !== 2 || args[1] !== "--confirm")) {
     throw new Error('La ejecución requiere --confirm. Consulta primero: troc setup plan "' + args[0] + '".');
   }
-  if (actionName !== "run" && actionName !== "db-test" && actionName !== "all" && args.length !== 1) throw new Error("Indica una sola ruta; usa comillas si contiene espacios.");
+  if (actionName !== "run" && actionName !== "db-test" && actionName !== "all" && actionName !== "vsconfig" && args.length !== 1) throw new Error("Indica una sola ruta; usa comillas si contiene espacios.");
   const report = await inspectProjectForSetup(args[0]);
   if (actionName === "inspect") { printInspection(report); return; }
   if (actionName === "vsconfig") {
