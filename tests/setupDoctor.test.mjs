@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildToolRequirements, parseWindowsDatabaseServices } from "../dist/setup/projectSetup.js";
+import { buildToolRequirements, buildVisualStudioComponentRequirements, parseWindowsDatabaseServices } from "../dist/setup/projectSetup.js";
+import { parseVisualStudioComponentStatus } from "../dist/integrations/ide/detector.js";
 
 test("asigna toolchains por proyecto y respeta el lockfile", () => {
   const report={packageDirectories:["."],manifests:["package.json","pnpm-lock.yaml"],dotnetProjects:["App.csproj"],composerDirectories:["backend"],requirements:["Python"],kinds:["ASP.NET Core","Go","Rust","Java"],databaseEngines:["SQL Server","MySQL","PostgreSQL"]};
@@ -23,4 +24,26 @@ test("la ausencia del servicio local no descarta un servidor remoto", () => {
   const result=parseWindowsDatabaseServices("",["SQL Server"]);
   assert.equal(result[0].state,"missing");
   assert.match(result[0].details,/remoto/);
+});
+
+
+test("propone componentes de Visual Studio según el tipo de proyecto", () => {
+  const report = { kinds: ["ASP.NET Core", "ASP.NET Framework", ".NET Framework 4.8", "SQL Database Project (SSDT clásico)"] };
+  const items = buildVisualStudioComponentRequirements(report);
+  const ids = items.map((item) => item.id);
+  assert.ok(ids.includes("Microsoft.VisualStudio.ComponentGroup.WebToolsExtensions"));
+  assert.ok(ids.includes("Microsoft.Net.Component.4.8.TargetingPack"));
+  assert.ok(ids.includes("Microsoft.VisualStudio.Component.SQL.SSDT"));
+  assert.equal(new Set(ids).size, ids.length);
+});
+
+test("no exige componentes web o SSDT a proyectos que no los necesitan", () => {
+  const items = buildVisualStudioComponentRequirements({ kinds: ["C# / .NET"] });
+  assert.deepEqual(items, []);
+});
+
+test("clasifica el resultado de vswhere sin confundir errores con componentes faltantes", () => {
+  assert.equal(parseVisualStudioComponentStatus("C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2026\\\\Community"), "installed");
+  assert.equal(parseVisualStudioComponentStatus(""), "missing");
+  assert.equal(parseVisualStudioComponentStatus("", false), "unknown");
 });

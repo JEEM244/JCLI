@@ -168,6 +168,17 @@ No imprime hosts, nombres de bases, usuarios ni contraseñas; tampoco resuelve v
 
 ### Diagnóstico del equipo
 
+#### Componentes de Visual Studio 2026
+
+Además de detectar la instalación de Visual Studio 2026, \`troc setup doctor\` revisa componentes relevantes para el proyecto:
+
+- ASP.NET Core o ASP.NET Framework: carga de herramientas web.
+- Proyectos dirigidos a .NET Framework 4.8 o 4.8.1: paquete de destino correspondiente.
+- Proyectos SQL SSDT clásicos: SQL Server Data Tools.
+
+Los proyectos SQL SDK-style (\`Microsoft.Build.Sql\`) no se marcan como dependientes del SSDT clásico. La detección consulta \`vswhere\` y es solo lectura. Si falta un componente, abre Visual Studio Installer y revisa la carga de trabajo correspondiente manualmente; JCLI no instala ni modifica componentes.
+
+
 `troc setup doctor "RUTA"` comprueba herramientas requeridas por el proyecto (Node.js/npm, .NET, PHP/Composer, Python, Go, Rust o Java), busca Visual Studio 2026, VS Code y SSMS 22 cuando aplican, y consulta servicios locales de SQL Server, MySQL o PostgreSQL en Windows.
 
 La detección de un servicio no demuestra que una base concreta exista, que el usuario tenga permisos o que la conexión funcione. El diagnóstico no usa credenciales, no se conecta a motores ni ejecuta SQL. Los servidores remotos no aparecen como servicios locales.

@@ -79,3 +79,31 @@ test("executeSetupPlan requiere confirmación y omite acciones manuales", async 
   assert.equal(results.length, 1);
   assert.equal(results[0].status, "success");
 });
+
+
+test("detecta ASP.NET Framework y SQL SSDT clásico para el diagnóstico de componentes", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-classic-"));
+  try {
+    await writeFile(path.join(root, "LegacyWeb.csproj"), [
+      '<Project ToolsVersion="15.0">',
+      '<PropertyGroup><TargetFrameworkVersion>v4.8</TargetFrameworkVersion></PropertyGroup>',
+      '<ItemGroup><Reference Include="System.Web" /></ItemGroup>',
+      '</Project>'
+    ].join(""));
+    await writeFile(path.join(root, "LegacyDatabase.sqlproj"), '<Project ToolsVersion="4.0"><PropertyGroup><DSP>Microsoft.Data.Tools.Schema.Sql.Sql160DatabaseSchemaProvider</DSP></PropertyGroup></Project>');
+    const report = await inspectProjectForSetup(root);
+    assert.ok(report.kinds.includes("ASP.NET Framework"));
+    assert.ok(report.kinds.includes(".NET Framework 4.8"));
+    assert.ok(report.kinds.includes("SQL Database Project (SSDT clásico)"));
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("reconoce SQL Database Project SDK sin exigir SSDT clásico", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-sql-sdk-"));
+  try {
+    await writeFile(path.join(root, "ModernDatabase.sqlproj"), '<Project Sdk="Microsoft.Build.Sql/1.0.0"><PropertyGroup /></Project>');
+    const report = await inspectProjectForSetup(root);
+    assert.ok(report.kinds.includes("SQL Database Project SDK"));
+    assert.ok(!report.kinds.includes("SQL Database Project (SSDT clásico)"));
+  } finally { await rm(root, { recursive:true, force:true }); }
+});

@@ -14,6 +14,72 @@ export interface IdeInstallation {
   details: string;
 }
 
+export interface VisualStudioComponentRequirement {
+  id: string;
+  name: string;
+}
+export interface VisualStudioComponentStatus extends VisualStudioComponentRequirement {
+  status: "installed" | "missing" | "unknown";
+  details: string;
+}
+
+function findVisualStudioWhere(): string | undefined {
+  const roots = [
+    process.env["ProgramFiles(x86)"] && path.join(process.env["ProgramFiles(x86)"]!, "Microsoft Visual Studio", "Installer", "vswhere.exe"),
+    process.env.ProgramFiles && path.join(process.env.ProgramFiles, "Microsoft Visual Studio", "Installer", "vswhere.exe")
+  ].filter((item): item is string => Boolean(item));
+  return roots.find(existsSync);
+}
+
+export function parseVisualStudioComponentStatus(
+  output: string,
+  succeeded = true
+): "installed" | "missing" | "unknown" {
+  if (!succeeded) return "unknown";
+  return output.trim() ? "installed" : "missing";
+}
+
+export async function detectVisualStudio2026Components(
+  requirements: VisualStudioComponentRequirement[]
+): Promise<VisualStudioComponentStatus[]> {
+  if (!requirements.length) return [];
+  if (process.platform !== "win32") {
+    return requirements.map((item) => ({
+      ...item, status: "unknown",
+      details: "La comprobación de componentes está preparada para Windows."
+    }));
+  }
+  const vswhere = findVisualStudioWhere();
+  if (!vswhere) {
+    return requirements.map((item) => ({
+      ...item, status: "unknown",
+      details: "No se encontró vswhere.exe; no fue posible comprobar los componentes."
+    }));
+  }
+  return Promise.all(requirements.map(async (item) => {
+    try {
+      const result = await execFileAsync(vswhere, [
+        "-latest", "-products", "*", "-version", "[18.0,19.0)",
+        "-requires", item.id, "-property", "installationPath"
+      ], { windowsHide: true, timeout: 8000, maxBuffer: 256 * 1024 });
+      const output = String(result.stdout);
+      const status = parseVisualStudioComponentStatus(output);
+      return {
+        ...item, status,
+        details: status === "installed"
+          ? "El componente está presente en la instancia de Visual Studio 2026."
+          : "El componente no aparece en la instancia de Visual Studio 2026 detectada."
+      };
+    } catch {
+      return {
+        ...item, status: "unknown" as const,
+        details: "No fue posible consultar vswhere para este componente."
+      };
+    }
+  }));
+}
+
+
 async function findOnPath(command: string): Promise<string | undefined> {
   try {
     const { stdout } = await execFileAsync(process.platform === "win32" ? "where.exe" : "which", [command], {
@@ -54,11 +120,7 @@ export async function detectVisualStudio2026(): Promise<IdeInstallation> {
   if (process.platform !== "win32") {
     return { id: "vs2026", name: "Visual Studio 2026", installed: false, details: "La detección está preparada para Windows." };
   }
-  const roots = [
-    process.env["ProgramFiles(x86)"] && path.join(process.env["ProgramFiles(x86)"]!, "Microsoft Visual Studio", "Installer", "vswhere.exe"),
-    process.env.ProgramFiles && path.join(process.env.ProgramFiles, "Microsoft Visual Studio", "Installer", "vswhere.exe")
-  ].filter((item): item is string => Boolean(item));
-  const vswhere = roots.find(existsSync);
+  const vswhere = findVisualStudioWhere();
   if (!vswhere) return { id: "vs2026", name: "Visual Studio 2026", installed: false, details: "No se encontró vswhere.exe." };
 
   try {

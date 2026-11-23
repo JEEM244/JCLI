@@ -3,7 +3,8 @@ import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { detectVSCode, detectVisualStudio2026, detectSSMS22 } from "../integrations/ide/detector.js";
+import { detectVSCode, detectVisualStudio2026, detectVisualStudio2026Components, detectSSMS22 } from "../integrations/ide/detector.js";
+import type { VisualStudioComponentRequirement, VisualStudioComponentStatus } from "../integrations/ide/detector.js";
 import { executeDatabaseConnectionTest } from "./databaseConnectionTest.js";
 const execFileAsync = promisify(execFile);
 
@@ -176,6 +177,14 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
     kinds.add("C# / .NET"); requirements.add(".NET SDK");
     const content = await readManifest(path.join(root, project));
     if (/Microsoft\.NET\.Sdk\.Web/i.test(content)) kinds.add("ASP.NET Core");
+    const classicWeb = /System\.Web(?:\.|,|")|Microsoft\.WebApplication\.targets|<ProjectTypeGuids>[^<]*349c5851-65df-11da-9384-00065b846f21/i.test(content);
+    if (classicWeb) {
+      kinds.add("ASP.NET Framework");
+      const frameworkVersion = content.match(/<TargetFrameworkVersion>\s*v?([\d.]+)\s*<\/TargetFrameworkVersion>/i)?.[1];
+      if (frameworkVersion === "4.8" || frameworkVersion === "4.8.1") {
+        kinds.add(".NET Framework " + frameworkVersion);
+      }
+    }
     if (/Microsoft\.EntityFrameworkCore\.SqlServer|Microsoft\.Data\.SqlClient|System\.Data\.SqlClient/i.test(content)) {
       engines.add("SQL Server"); libraries.add("Entity Framework Core / SqlClient");
     }
@@ -188,6 +197,11 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
     if (/EntityFrameworkCore\.Sqlite/i.test(content)) {
       engines.add("SQLite"); libraries.add("Entity Framework Core SQLite");
     }
+  }
+  for (const project of sqlProjects) {
+    const content = await readManifest(path.join(root, project));
+    const sdkStyle = /Microsoft\.Build\.Sql|<Project\s+Sdk\s*=|<Sdk\b[^>]*Name\s*=\s*["']Microsoft\.Build\.Sql/i.test(content);
+    kinds.add(sdkStyle ? "SQL Database Project SDK" : "SQL Database Project (SSDT clásico)");
   }
   if (solutions.length || dotnetProjects.length || sqlProjects.length) {
     kinds.add(".NET / Visual Studio"); requirements.add("Visual Studio 2026 o un editor compatible");
@@ -324,6 +338,7 @@ export interface SetupDoctorReport {
   inspection:SetupInspection; tools:ToolCheck[];
   ides:Array<{name:string;installed:boolean;executable?:string;details:string}>;
   databaseServices:DatabaseServiceCheck[]; missingRequired:string[];
+  visualStudioComponents:VisualStudioComponentStatus[];
 }
 
 export function buildToolRequirements(report:SetupInspection,platform=process.platform):ToolRequirement[] {
@@ -421,6 +436,38 @@ async function inspectDatabaseServices(engines:string[]):Promise<DatabaseService
     return supported.map(engine=>({engine,state:"unknown" as const,details:"No fue posible consultar servicios locales; comprueba su estado manualmente."}));
   }
 }
+
+export function buildVisualStudioComponentRequirements(
+  report: Pick<SetupInspection, "kinds">
+): VisualStudioComponentRequirement[] {
+  const requirements: VisualStudioComponentRequirement[] = [];
+  if (report.kinds.includes("ASP.NET Core") || report.kinds.includes("ASP.NET Framework")) {
+    requirements.push({
+      id: "Microsoft.VisualStudio.ComponentGroup.WebToolsExtensions",
+      name: "ASP.NET y desarrollo web"
+    });
+  }
+  if (report.kinds.includes(".NET Framework 4.8")) {
+    requirements.push({
+      id: "Microsoft.Net.Component.4.8.TargetingPack",
+      name: ".NET Framework 4.8 targeting pack"
+    });
+  }
+  if (report.kinds.includes(".NET Framework 4.8.1")) {
+    requirements.push({
+      id: "Microsoft.Net.Component.4.8.1.TargetingPack",
+      name: ".NET Framework 4.8.1 targeting pack"
+    });
+  }
+  if (report.kinds.includes("SQL Database Project (SSDT clásico)")) {
+    requirements.push({
+      id: "Microsoft.VisualStudio.Component.SQL.SSDT",
+      name: "SQL Server Data Tools (SSDT)"
+    });
+  }
+  return requirements;
+}
+
 export async function inspectProjectEnvironment(report:SetupInspection):Promise<SetupDoctorReport>{
   const tools=await Promise.all(buildToolRequirements(report).map(checkRequirement));
   const ides:SetupDoctorReport["ides"]=[];
@@ -428,6 +475,9 @@ export async function inspectProjectEnvironment(report:SetupInspection):Promise<
     const ide=await detectVisualStudio2026();
     ides.push({name:ide.name,installed:ide.installed,...(ide.executable?{executable:ide.executable}:{}),details:ide.details});
   }
+  const visualStudioComponents = report.solutions.length || report.dotnetProjects.length || report.kinds.includes("SQL Database Project (SSDT clásico)")
+    ? await detectVisualStudio2026Components(buildVisualStudioComponentRequirements(report))
+    : [];
   if(report.packageDirectories.length||report.kinds.some(kind=>["PHP / Composer","Python","Go","Rust"].includes(kind))){
     const ide=await detectVSCode();
     ides.push({name:ide.name,installed:ide.installed,...(ide.executable?{executable:ide.executable}:{}),details:ide.details});
@@ -437,7 +487,7 @@ export async function inspectProjectEnvironment(report:SetupInspection):Promise<
     ides.push({name:ide.name,installed:ide.installed,...(ide.executable?{executable:ide.executable}:{}),details:ide.details});
   }
   const databaseServices=await inspectDatabaseServices(report.databaseEngines);
-  return {inspection:report,tools,ides,databaseServices,missingRequired:tools.filter(item=>item.required&&!item.installed).map(item=>item.name)};
+  return {inspection:report,tools,ides,databaseServices,visualStudioComponents,missingRequired:tools.filter(item=>item.required&&!item.installed).map(item=>item.name)};
 }
 function printDoctor(report:SetupDoctorReport):void{
   console.log("JCLI Project Setup — diagnóstico del entorno");
@@ -456,6 +506,15 @@ function printDoctor(report:SetupDoctorReport):void{
       if(ide.executable)console.log("    "+ide.executable);
       console.log("    "+ide.details);
     }
+  }
+  if(report.visualStudioComponents.length){
+    console.log("\nComponentes de Visual Studio 2026:");
+    for(const item of report.visualStudioComponents){
+      const state = item.status === "installed" ? "DISPONIBLE" : item.status === "missing" ? "FALTA" : "NO SE PUDO COMPROBAR";
+      console.log("  ["+state+"] "+item.name);
+      console.log("    "+item.details);
+    }
+    console.log("JCLI solo diagnostica componentes; no abre el instalador ni modifica Visual Studio.");
   }
   if(report.databaseServices.length){
     console.log("\nServicios de bases de datos:");
