@@ -793,7 +793,8 @@ export async function exportSetupReport(
       })),
       visualStudioComponents: doctor.visualStudioComponents,
       databaseServices: doctor.databaseServices.map((item) => ({
-        engine: item.engine, state: item.state, details: item.details
+        engine: item.engine, state: item.state,
+        details: "Estado local reportado por el administrador de servicios; identificadores omitidos."
       })),
       missingRequired: doctor.missingRequired
     },

@@ -248,3 +248,8 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 - [x] No sobrescribir informes existentes; generar nombres únicos.
 - [x] Rechazar una carpeta de informes cuya ruta real escape del proyecto.
 - [x] Añadir pruebas de privacidad, colisiones de nombres y rutas simbólicas.
+
+
+## V0.19.1 — Protección adicional de identificadores locales
+
+- [x] Generalizar los detalles de servicios de bases de datos en informes exportados y no incluir sus nombres de Windows.
