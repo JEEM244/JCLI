@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 export interface IdeInstallation {
-  id: "vscode" | "vs2026";
+  id: "vscode" | "vs2026" | "ssms22";
   name: string;
   installed: boolean;
   executable?: string;
@@ -78,4 +78,54 @@ export async function detectVisualStudio2026(): Promise<IdeInstallation> {
   } catch {
     return { id: "vs2026", name: "Visual Studio 2026", installed: false, details: "No fue posible consultar vswhere." };
   }
+}
+
+
+export function findSSMS22Executable(
+  roots: Array<string | undefined>,
+  exists: (candidate: string) => boolean = existsSync
+): string | undefined {
+  const candidates = roots.filter((root): root is string => Boolean(root)).flatMap((root) => [
+    path.join(root, "Microsoft SQL Server Management Studio 22", "Release", "Common7", "IDE", "Ssms.exe"),
+    path.join(root, "Microsoft SQL Server Management Studio 22", "Common7", "IDE", "Ssms.exe"),
+    path.join(root, "Microsoft SQL Server Management Studio 22", "Ssms.exe")
+  ]);
+  return candidates.find(exists);
+}
+
+export async function detectSSMS22(): Promise<IdeInstallation> {
+  if (process.platform !== "win32") {
+    return {
+      id: "ssms22",
+      name: "SQL Server Management Studio 22",
+      installed: false,
+      details: "SSMS 22 solo está disponible para Windows."
+    };
+  }
+  const configuredPath = process.env.SSMS22_PATH?.trim();
+  const configuredExecutable = configuredPath
+    ? (configuredPath.toLowerCase().endsWith(".exe") ? configuredPath : path.join(configuredPath, "Ssms.exe"))
+    : undefined;
+  const discovered = findSSMS22Executable([
+    process.env.ProgramFiles,
+    process.env["ProgramFiles(x86)"]
+  ]);
+  const executable = [configuredExecutable, discovered].find((candidate) =>
+    Boolean(candidate && existsSync(candidate))
+  );
+  if (!executable) {
+    return {
+      id: "ssms22",
+      name: "SQL Server Management Studio 22",
+      installed: false,
+      details: "No se encontró Ssms.exe en la ruta habitual. Puedes definir SSMS22_PATH con la ruta de Ssms.exe."
+    };
+  }
+  return {
+    id: "ssms22",
+    name: "SQL Server Management Studio 22",
+    installed: true,
+    executable,
+    details: "Instalación de SSMS 22 localizada."
+  };
 }

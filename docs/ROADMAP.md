@@ -103,6 +103,14 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [x] Limitar el tamaño y cantidad de registros y redactar patrones comunes de secretos.
 - [x] Guardar la memoria fuera de Git con identificación local por hash.
 
+## V0.10 — SQL Server Management Studio 22
+- [x] Detectar SSMS 22 en rutas habituales y permitir una ruta personalizada.
+- [x] Abrir SSMS 22 y scripts .sql desde proyectos registrados.
+- [x] Integrar JCLI en Herramientas externas de SSMS usando macros del archivo actual.
+- [x] Inspeccionar metadatos de scripts .sql con límites de tamaño y rutas dentro del proyecto, sin ejecutar SQL.
+- [x] Detectar proyectos .sqlproj SDK-style y proponer solo compilación compatible.
+- [x] Identificar proyectos SSDT clásicos sin inventar comandos build/test.
+
 ## Principios
 
 - Priorizar Windows 11 y PowerShell 7.

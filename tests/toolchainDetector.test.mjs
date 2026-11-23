@@ -60,3 +60,35 @@ test("no propone comandos para proyectos sin toolchain compatible", async () => 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+
+test("detecta proyectos SQL SDK-style y propone solo compilación", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "jcli-toolchain-sqlsdk-"));
+  try {
+    await mkdir(path.join(directory, "database"), { recursive: true });
+    await writeFile(path.join(directory, "database", "Catalog.sqlproj"),
+      '<Project Sdk="Microsoft.Build.Sql/1.0.0"></Project>', "utf8");
+    const result = await detectToolchain("SQLSDK", directory);
+    assert.ok(result.detected.includes("SQL Server Database Project (.sqlproj)"));
+    assert.ok(result.commands.some((item) =>
+      item.action === "build" && item.display.includes("dotnet build database")
+    ));
+    assert.ok(!result.commands.some((item) => item.action === "test"));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("no inventa dotnet build para proyectos SQL clásicos", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "jcli-toolchain-sqllegacy-"));
+  try {
+    await writeFile(path.join(directory, "Legacy.sqlproj"),
+      '<Project ToolsVersion="4.0"><PropertyGroup><Name>Legacy</Name></PropertyGroup></Project>', "utf8");
+    const result = await detectToolchain("SQLLEGACY", directory);
+    assert.ok(result.detected.includes("SQL Server Database Project (.sqlproj)"));
+    assert.ok(!result.commands.some((item) => item.tool === "dotnet"));
+    assert.ok(result.warnings.some((warning) => warning.includes("MSBuild y SSDT")));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

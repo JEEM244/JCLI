@@ -24,7 +24,8 @@ import { GitHubIssueLinkStore } from "./github/issueLinkStore.js";
 import { ProjectKnowledgeStore } from "./knowledge/projectKnowledgeStore.js";
 import { analyzeProject } from "./projects/projectAnalyzer.js";
 import { inspectGit } from "./projects/gitInspector.js";
-import { detectVSCode, detectVisualStudio2026 } from "./integrations/ide/detector.js";
+import { detectVSCode, detectVisualStudio2026, detectSSMS22 } from "./integrations/ide/detector.js";
+import { inspectSqlScript } from "./integrations/ide/ssms22Integration.js";
 import type { Task, TaskPriority, TaskStatus } from "./types.js";
 
 const store = new TaskStore();
@@ -117,8 +118,12 @@ function help(): void {
     "  troc history [limite]",
     "  troc ide vscode detect",
     "  troc ide vs2026 detect",
+    "  troc ide ssms22 detect",
     "  troc ide vscode open <ID>",
     "  troc ide vs2026 open <ID>",
+    "  troc ide ssms22 open <ID> [ARCHIVO.sql]",
+    "  troc ide ssms22 external-tool <ID>",
+    "  troc ide ssms22 inspect <ID> <ARCHIVO.sql>",
     "  troc providers list",
     "  troc providers status",
     "  troc providers test <proveedor>",
@@ -654,6 +659,13 @@ export async function runCli(args: string[]): Promise<void> {
       console.log(result.details);
       return;
     }
+    if (ideName === "ssms22" && ideAction === "detect") {
+      const result = await detectSSMS22();
+      console.log(result.name + ": " + (result.installed ? "detectado" : "no detectado"));
+      if (result.executable) console.log("Ejecutable: " + result.executable);
+      console.log(result.details);
+      return;
+    }
     if ((ideName === "vscode" || ideName === "vs2026") && ideAction === "open" && projectId) {
       const project = await projects.get(projectId);
       if (!project) throw new Error("No se encontró el proyecto " + projectId + ".");
@@ -675,6 +687,59 @@ export async function runCli(args: string[]): Promise<void> {
       if (!solution) throw new Error("No se encontró un archivo .sln, .slnx o .csproj en el proyecto.");
       launch(result.executable, [solution]);
       console.log("Abriendo " + path.basename(solution) + " en Visual Studio 2026.");
+      return;
+    }
+    if (ideName === "ssms22" && ideAction === "detect") {
+      const result = await detectSSMS22();
+      console.log(result.name + ": " + (result.installed ? "detectado" : "no detectado"));
+      if (result.executable) console.log("Ejecutable: " + result.executable);
+      console.log(result.details);
+      return;
+    }
+    if (ideName === "ssms22" && ideAction === "external-tool" && projectId) {
+      const project = await projects.get(projectId);
+      if (!project) throw new Error("No se encontró el proyecto " + projectId + ".");
+      if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(project.id)) {
+        throw new Error("El ID del proyecto contiene caracteres no compatibles con una configuración de herramienta externa.");
+      }
+      console.log("Configuración para SSMS 22 — Herramientas > Herramientas externas");
+      console.log("Título: JCLI — inspeccionar archivo SQL");
+      console.log("Comando: troc.cmd");
+      console.log("Argumentos: ide ssms22 inspect \"" + project.id + "\" \"$(ItemPath)\"");
+      console.log("Directorio inicial: $(ItemDir)");
+      console.log("Usar ventana de resultados: Sí");
+      console.log("Tratar salida como Unicode: Sí");
+      console.log("Abre un archivo .sql guardado y ejecuta la herramienta desde el menú Herramientas.");
+      return;
+    }
+    if (ideName === "ssms22" && ideAction === "inspect" && projectId && rest[2]) {
+      const project = await projects.get(projectId);
+      if (!project) throw new Error("No se encontró el proyecto " + projectId + ".");
+      const report = await inspectSqlScript(project.directory, rest[2]);
+      console.log("JCLI — inspección local para SSMS 22");
+      console.log("Proyecto: " + project.name + " (" + project.id + ")");
+      console.log("Archivo: " + report.relativePath);
+      console.log("Tamaño: " + report.sizeBytes.toLocaleString("es-MX") + " bytes");
+      console.log("Líneas: " + report.lineCount.toLocaleString("es-MX"));
+      console.log("No se abrió una conexión ni se ejecutó SQL.");
+      return;
+    }
+    if (ideName === "ssms22" && ideAction === "open" && projectId) {
+      const project = await projects.get(projectId);
+      if (!project) throw new Error("No se encontró el proyecto " + projectId + ".");
+      if (!existsSync(project.directory)) throw new Error("La carpeta del proyecto ya no existe.");
+      const result = await detectSSMS22();
+      if (!result.installed || !result.executable) {
+        throw new Error("SSMS 22 no está instalado o no se encontró Ssms.exe. Configura SSMS22_PATH si la instalación es personalizada.");
+      }
+      if (rest[2]) {
+        const report = await inspectSqlScript(project.directory, rest[2]);
+        launch(result.executable, [report.absolutePath]);
+        console.log("Abriendo " + report.relativePath + " en SQL Server Management Studio 22.");
+      } else {
+        launch(result.executable, []);
+        console.log("Abriendo SQL Server Management Studio 22.");
+      }
       return;
     }
     throw new Error("Uso de IDE no válido. Ejecuta troc help.");

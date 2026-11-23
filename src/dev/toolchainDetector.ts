@@ -37,6 +37,28 @@ async function findDotnetTarget(root: string): Promise<string | undefined> {
   return walk(root, 0);
 }
 
+async function findSqlProject(root: string): Promise<string | undefined> {
+  async function walk(directory: string, depth: number): Promise<string | undefined> {
+    if (depth > 3) return undefined;
+    let entries;
+    try {
+      entries = await readdir(directory, { withFileTypes: true });
+    } catch {
+      return undefined;
+    }
+    const target = entries.find((entry) => entry.isFile() && /\.sqlproj$/i.test(entry.name));
+    if (target) return path.join(directory, target.name);
+    for (const entry of entries) {
+      if (entry.isDirectory() && !ignored.has(entry.name.toLowerCase()) && !entry.name.startsWith(".")) {
+        const found = await walk(path.join(directory, entry.name), depth + 1);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }
+  return walk(root, 0);
+}
+
 function npmCommand(action: DevAction, scriptName: string): DevCommand {
   const args = ["run", scriptName];
   return {
@@ -91,6 +113,29 @@ export async function detectToolchain(projectId: string, directory: string): Pro
       display: "dotnet test " + relative + " --nologo",
       note: "Ejecuta las pruebas .NET descubiertas por el SDK."
     });
+  }
+
+  const sqlProject = await findSqlProject(directory);
+  if (sqlProject) {
+    detected.push("SQL Server Database Project (.sqlproj)");
+    const relative = path.relative(directory, sqlProject);
+    try {
+      const sqlProjectText = await readFile(sqlProject, "utf8");
+      if (/Microsoft\.Build\.Sql/i.test(sqlProjectText)) {
+        commands.push({
+          tool: "dotnet",
+          action: "build",
+          executable: "dotnet",
+          args: ["build", relative, "--nologo"],
+          display: "dotnet build " + relative + " --nologo",
+          note: "Compila el proyecto SQL SDK-style basado en Microsoft.Build.Sql. No ejecuta scripts contra una base de datos."
+        });
+      } else {
+        warnings.push("Se detectó un .sqlproj clásico. JCLI no inventará un comando dotnet build: puede requerir MSBuild y SSDT de Visual Studio.");
+      }
+    } catch {
+      warnings.push("No se pudo leer el archivo .sqlproj para identificar su tipo de proyecto.");
+    }
   }
 
   try {

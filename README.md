@@ -52,11 +52,15 @@ troc project open WEB
 troc project analyze WEB
 troc project git WEB
 
-# Visual Studio 2026 y Visual Studio Code
+# Visual Studio 2026, Visual Studio Code y SQL Server Management Studio 22
 troc ide vscode detect
 troc ide vs2026 detect
+troc ide ssms22 detect
 troc ide vscode open WEB
 troc ide vs2026 open WEB
+troc ide ssms22 open WEB
+troc ide ssms22 open WEB database/schema.sql
+troc ide ssms22 external-tool WEB
 
 # Entorno de desarrollo
 troc dev inspect WEB
@@ -153,7 +157,33 @@ Los resultados quedan en `data/dev-runs/`; puedes consultarlos con `troc dev sho
 
 `troc dev vscode-tasks ID --confirm` crea `.vscode/tasks.json` con las tareas build/test encontradas. Después, en VS Code abre la paleta de comandos y elige **Tasks: Run Task**. Si ya existe `.vscode/tasks.json`, JCLI se niega a sobrescribirlo; tendrás que combinar las tareas manualmente.
 
-Visual Studio 2026 abre la solución registrada y usa los comandos del .NET SDK para build/test. JCLI todavía no controla extensiones, cargas de trabajo ni ventanas gráficas de los IDEs.
+Visual Studio 2026 abre la solución registrada y usa los comandos del .NET SDK para build/test.
+
+### SQL Server Management Studio 22
+
+JCLI detecta SSMS 22 en su ruta de instalación habitual. Para una instalación personalizada puedes definir `SSMS22_PATH` con la ruta completa a `Ssms.exe` (o a su carpeta).
+
+- `troc ide ssms22 detect`: comprueba si SSMS 22 está instalado.
+- `troc ide ssms22 open ID`: abre SSMS 22.
+- `troc ide ssms22 open ID ARCHIVO.sql`: abre un script SQL del proyecto registrado. El archivo debe estar dentro de esa carpeta.
+- `troc ide ssms22 external-tool ID`: muestra los valores para registrar JCLI en **Herramientas > Herramientas externas**.
+- `troc ide ssms22 inspect ID ARCHIVO.sql`: muestra ruta, tamaño y líneas del script, sin conectarse al servidor ni ejecutar SQL.
+
+#### Conectar JCLI al menú Herramientas de SSMS
+
+1. Ejecuta `troc ide ssms22 external-tool ID` y conserva los valores mostrados.
+2. En SSMS abre **Herramientas > Herramientas externas** y agrega una entrada con el título indicado.
+3. Usa `troc.cmd` como comando y copia los argumentos que genera JCLI. El argumento `$(ItemPath)` apunta al archivo actual del editor y el directorio inicial `$(ItemDir)` a su carpeta.
+4. Activa **Usar ventana de resultados** y **Tratar salida como Unicode**.
+5. Abre un archivo `.sql` guardado y ejecuta la nueva herramienta desde el menú **Herramientas**.
+
+La inspección solo lee metadatos básicos del archivo; no envía el contenido a una API, no abre conexiones, no modifica bases de datos y no ejecuta instrucciones SQL. La herramienta requiere que `troc.cmd` esté en PATH. Si lo acabas de instalar o modificar PATH, reinicia SSMS.
+
+### Proyectos de base de datos SQL
+
+JCLI detecta archivos `.sqlproj`. Si el archivo declara el SDK `Microsoft.Build.Sql`, propone `dotnet build` y no genera una tarea test falsa. Los proyectos SSDT clásicos se detectan, pero JCLI avisa que pueden requerir MSBuild y SSDT de Visual Studio; no intenta ejecutarlos mediante un comando incompatible.
+
+JCLI no controla extensiones, cargas de trabajo ni ventanas gráficas de los IDEs.
 
 ## Conectores de IA
 
@@ -319,4 +349,4 @@ Los análisis de estructura revisan como máximo 2,500 entradas y no almacenan e
 
 Los registros viven en `data/knowledge/projects/`, se identifican mediante un hash del ID del proyecto y están excluidos de Git. La memoria se incorpora automáticamente a `troc team plan` y al contexto de cada agente. Se trata como dato histórico no confiable, no como instrucciones del sistema. Para compartirla con APIs se siguen aplicando los permisos y límites de llamadas multiagente ya configurados.
 
-Versión actual: **0.9.0**.
+Versión actual: **0.10.0**.
