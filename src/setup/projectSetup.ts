@@ -4,6 +4,7 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { detectVSCode, detectVisualStudio2026, detectSSMS22 } from "../integrations/ide/detector.js";
+import { executeDatabaseConnectionTest } from "./databaseConnectionTest.js";
 const execFileAsync = promisify(execFile);
 
 const IGNORED = new Set([".git", ".vs", ".idea", "node_modules", "vendor", "dist", "build", "coverage", "bin", "obj", ".venv", "venv", "__pycache__"]);
@@ -564,19 +565,31 @@ function printPlan(plan: SetupPlan): void {
   if (plan.actions.length) console.log('Para aplicar las restauraciones, ejecuta: troc setup run "' + plan.inspection.root + '" --confirm');
 }
 export async function runSetupCommand(actionName: string | undefined, args: string[]): Promise<void> {
-  if (!actionName || !["inspect","plan","run","report","doctor","db-config"].includes(actionName)) {
-    throw new Error("Uso: troc setup <inspect|plan|run|report|doctor|db-config> <RUTA> [--confirm].");
+  if (!actionName || !["inspect","plan","run","report","doctor","db-config","db-test"].includes(actionName)) {
+    throw new Error("Uso: troc setup <inspect|plan|run|report|doctor|db-config|db-test> <RUTA> [PERFIL] [--confirm].");
   }
   if (!args[0]) throw new Error("Indica la ruta de la carpeta del proyecto.");
   if ((actionName === "doctor" || actionName === "db-config") && args.length !== 1) throw new Error("Este diagnóstico acepta una sola ruta de proyecto.");
+  if (actionName === "db-test" && (args.length !== 3 || args[2] !== "--confirm")) {
+    throw new Error('La prueba requiere --confirm. Primero consulta troc setup db-config "' + args[0] + '" y después usa troc setup db-test "' + args[0] + '" NOMBRE --confirm.');
+  }
   if (actionName === "run" && (args.length !== 2 || args[1] !== "--confirm")) {
     throw new Error('La ejecución requiere --confirm. Consulta primero: troc setup plan "' + args[0] + '".');
   }
-  if (actionName !== "run" && args.length !== 1) throw new Error("Indica una sola ruta; usa comillas si contiene espacios.");
+  if (actionName !== "run" && actionName !== "db-test" && args.length !== 1) throw new Error("Indica una sola ruta; usa comillas si contiene espacios.");
   const report = await inspectProjectForSetup(args[0]);
   if (actionName === "inspect" || actionName === "report") { printInspection(report); return; }
   if (actionName === "doctor") { printDoctor(await inspectProjectEnvironment(report)); return; }
   if (actionName === "db-config") { printDatabaseConfiguration(await inspectDatabaseConfiguration(report)); return; }
+  if (actionName === "db-test") {
+    const result = await executeDatabaseConnectionTest(report, args[1], true);
+    console.log("Perfil: " + result.name + " (" + result.file + ")");
+    console.log("Resultado: " + (result.status === "success" ? "conexión correcta" : result.status === "timeout" ? "tiempo agotado" : "falló la conexión"));
+    console.log("Duración: " + result.durationMs + " ms");
+    if (result.status === "success") console.log("La consulta fija SELECT 1 respondió correctamente. No se modificó la base de datos.");
+    else console.log("No se obtuvo confirmación de conexión. Revisa el servicio, la instancia, los permisos y el certificado; no se muestran detalles de conexión.");
+    return;
+  }
   const plan = createSetupPlan(report);
   if (actionName === "plan") { printPlan(plan); return; }
   printPlan(plan);

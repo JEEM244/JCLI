@@ -153,3 +153,18 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - No simular integraciones: una función solo se considera terminada cuando ejecuta una operación real y comprobable.
 - No ejecutar comandos arbitrarios ni modificar archivos importantes sin autorización.
 - Mantener los proyectos independientes: no imponerles el nombre JCLI.
+
+
+## V0.14.0 — Prueba de conexión SQL Server de solo lectura
+
+- [x] Selección explícita de un perfil de \`ConnectionStrings\` en \`appsettings*.json\`.
+- [x] Resolución en memoria de referencias \`\${VARIABLE}\`, \$(VARIABLE) y %VARIABLE% desde el entorno actual; los valores nunca se imprimen ni se guardan.
+- [x] Primera conexión limitada a Windows Integrated Authentication mediante \`sqlcmd -E\`.
+- [x] Rechazo de perfiles con usuario o contraseña SQL, incluso si también declaran autenticación integrada.
+- [x] Consulta fija \`SET NOCOUNT ON; SELECT 1;\`; no se aceptan instrucciones SQL del usuario.
+- [x] Confirmación obligatoria \`--confirm\`, timeout corto y resultado sin mensajes de error que puedan filtrar la cadena.
+- [x] Pruebas automatizadas con cliente simulado; CI no intenta conexiones reales.
+
+### Límites de esta versión
+
+La comprobación requiere Windows, \`sqlcmd\`, permisos de Windows sobre SQL Server y un perfil con servidor, base y autenticación integrada. La comprobación no crea bases, no ejecuta migraciones y no comprueba permisos de escritura. MySQL, PostgreSQL y autenticación SQL quedan fuera de esta primera prueba real.

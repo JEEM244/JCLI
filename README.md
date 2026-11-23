@@ -59,6 +59,7 @@ troc setup run "C:\Proyectos\MVCConexion_5L1" --confirm
 troc setup report "C:\Proyectos\MVCConexion_5L1"
 troc setup doctor "C:\Proyectos\MVCConexion_5L1"
 troc setup db-config "C:\Proyectos\MVCConexion_5L1"
+troc setup db-test "C:\Proyectos\MVCConexion_5L1" DefaultConnection --confirm
 
 # Visual Studio 2026, Visual Studio Code y SQL Server Management Studio 22
 troc ide vscode detect
@@ -163,7 +164,7 @@ Revisa el plan antes de confirmar: las restauraciones descargan paquetes y puede
 
 `troc setup db-config "RUTA"` revisa las secciones `ConnectionStrings` de `appsettings*.json` y muestra si cada perfil tiene servidor/base configurados, el tipo de autenticación y los nombres de variables de entorno referenciadas.
 
-No imprime hosts, nombres de bases, usuarios ni contraseñas; tampoco resuelve variables, modifica archivos ni abre conexiones. No sustituye una prueba real de conectividad.
+No imprime hosts, nombres de bases, usuarios ni contraseñas; tampoco resuelve variables, modifica archivos ni abre conexiones. Para una prueba real de SQL Server en Windows, `troc setup db-test "RUTA" NOMBRE_CONEXION --confirm` utiliza `sqlcmd` y autenticación integrada de Windows. Solo ejecuta `SET NOCOUNT ON; SELECT 1;`; no acepta inicios de sesión SQL, no imprime valores de conexión y no ejecuta migraciones ni cambios. Primero revisa los perfiles con `troc setup db-config "RUTA"`. Si el mismo nombre aparece en varios archivos, selecciona uno con `ARCHIVO::NOMBRE`.
 
 ### Diagnóstico del equipo
 
