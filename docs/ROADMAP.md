@@ -232,3 +232,8 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 - [x] Mantener la prueba real de SQL Server, las migraciones y los cambios de base de datos como pasos separados.
 - [x] Detener el flujo ante una restauración fallida y mostrar resultados.
 - [x] Añadir pruebas de preflight y validación de argumentos.
+
+
+## V0.18.1 — Ajuste de prueba integral
+
+- [x] Alinear la prueba del comando `setup all` con el mensaje real del inventario vacío de conexiones.
