@@ -14,6 +14,7 @@ const MAX_DECISIONS = 100;
 
 function storageName(projectId: string): string {
   if (!projectId || projectId.trim() !== projectId || projectId.length > 100 ||
+      projectId === "." || projectId === ".." || /[\/\\]/.test(projectId) ||
       /[\0-\x1f\x7f]/.test(projectId)) {
     throw new Error("ID de proyecto no válido para la memoria.");
   }
