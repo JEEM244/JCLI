@@ -60,6 +60,7 @@ troc setup plan "C:\Proyectos\MVCConexion_5L1"
 troc setup run "C:\Proyectos\MVCConexion_5L1" --confirm
 troc setup report "C:\Proyectos\MVCConexion_5L1"
 troc setup verify "C:\Proyectos\MVCConexion_5L1"
+troc setup vsconfig "C:\Proyectos\MVCConexion_5L1" --confirm
 troc setup report "C:\Proyectos\MVCConexion_5L1" --json
 troc setup doctor "C:\Proyectos\MVCConexion_5L1"
 troc setup db-config "C:\Proyectos\MVCConexion_5L1"
@@ -181,7 +182,13 @@ No imprime hosts, nombres de bases, usuarios ni contraseñas; tampoco resuelve v
 
 #### Componentes de Visual Studio 2026
 
-Además de detectar la instalación de Visual Studio 2026, `troc setup doctor` revisa componentes relevantes para el proyecto:
+Además de detectar la instalación de Visual Studio 2026, `troc setup doctor` revisa componentes relevantes para el proyecto. Para generar un archivo de configuración con los componentes identificados:
+
+```powershell
+troc setup vsconfig "C:\Proyectos\MiProyecto" --confirm
+```
+
+El archivo se guarda en `.troc/configs/`. Abre Visual Studio Installer, selecciona la instancia correspondiente de Visual Studio 2026 e importa el `.vsconfig`. La importación es aditiva: agrega componentes, pero no quita los existentes. JCLI no inicia la instalación ni acepta licencias por ti.
 
 - ASP.NET Core o ASP.NET Framework: carga de herramientas web.
 - Proyectos dirigidos a .NET Framework 4.8 o 4.8.1: paquete de destino correspondiente.

@@ -264,3 +264,14 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 - [x] Mostrar verificación en \`setup all\` y repetirla después de las restauraciones confirmadas.
 - [x] Incluir el resultado en informes JSON sin añadir rutas absolutas.
 - [x] Añadir pruebas de artefactos presentes/ausentes, enlaces simbólicos y gestores manuales.
+
+
+## V0.21.0 — Configuración importable de Visual Studio 2026
+
+- [x] Generar \`.vsconfig\` usando los IDs de componentes que requiere el tipo de proyecto.
+- [x] Incluir solo los componentes necesarios detectados para ASP.NET, .NET Framework y SSDT.
+- [x] Guardar el archivo dentro de \`.troc/configs/\`, excluido de Git.
+- [x] Requerir \`--confirm\` para escribir el archivo y no sobrescribir configuraciones anteriores.
+- [x] Rechazar rutas simbólicas que intenten sacar la configuración del proyecto.
+- [x] Explicar el paso de importación manual en Visual Studio Installer.
+- [x] Añadir pruebas de formato, componentes, colisiones y seguridad de rutas.

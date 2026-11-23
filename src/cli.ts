@@ -73,6 +73,7 @@ function help(): void {
     "  troc project git <ID>",
     "  troc setup all <RUTA> [--confirm]",
     "  troc setup verify <RUTA>",
+    "  troc setup vsconfig <RUTA> --confirm",
     "  troc setup inspect <RUTA>",
     "  troc setup plan <RUTA>",
     "  troc setup run <RUTA> --confirm",

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { inspectProjectForSetup, createSetupPlan, executeSetupPlan, isHashLockedPythonRequirements, runSetupCommand, exportSetupReport, verifySetupArtifacts } from "../dist/setup/projectSetup.js";
+import { inspectProjectForSetup, createSetupPlan, executeSetupPlan, isHashLockedPythonRequirements, runSetupCommand, exportSetupReport, verifySetupArtifacts, exportVisualStudioConfiguration } from "../dist/setup/projectSetup.js";
 
 test("analiza ASP.NET MVC y SQL Server sin exponer valores de conexión", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-mvc-"));
@@ -405,4 +405,61 @@ test("clasifica Go, Rust y Java como verificación manual en vez de afirmar que 
     assert.equal(results.find((item) => item.id.startsWith("rust:"))?.status, "manual");
     assert.equal(results.find((item) => item.id.startsWith("java:"))?.status, "manual");
   } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+
+test("genera .vsconfig solo con componentes requeridos y no sobrescribe archivos", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-vsconfig-"));
+  const fixedDate = new Date("2026-11-22T12:00:00.000Z");
+  try {
+    await writeFile(path.join(root, "Web.csproj"), [
+      '<Project Sdk="Microsoft.NET.Sdk.Web">',
+      '<PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>',
+      '</Project>'
+    ].join(""));
+    await writeFile(path.join(root, "Legacy.csproj"), [
+      '<Project ToolsVersion="15.0">',
+      '<PropertyGroup><TargetFrameworkVersion>v4.8</TargetFrameworkVersion></PropertyGroup>',
+      '<ItemGroup><Reference Include="System.Web" /></ItemGroup>',
+      '</Project>'
+    ].join(""));
+    await writeFile(path.join(root, "Database.sqlproj"), '<Project ToolsVersion="4.0"><PropertyGroup><DSP>Microsoft.Data.Tools.Schema.Sql.Sql160DatabaseSchemaProvider</DSP></PropertyGroup></Project>');
+    const inspection = await inspectProjectForSetup(root);
+    const destination = await exportVisualStudioConfiguration(inspection, fixedDate);
+    const { readFile: readConfig } = await import("node:fs/promises");
+    const config = JSON.parse(await readConfig(destination, "utf8"));
+    assert.equal(config.version, "1.0");
+    assert.ok(config.components.includes("Microsoft.VisualStudio.ComponentGroup.WebToolsExtensions"));
+    assert.ok(config.components.includes("Microsoft.Net.Component.4.8.TargetingPack"));
+    assert.ok(config.components.includes("Microsoft.VisualStudio.Component.SQL.SSDT"));
+    assert.equal(new Set(config.components).size, config.components.length);
+    const second = await exportVisualStudioConfiguration(inspection, fixedDate);
+    assert.notEqual(second, destination);
+    assert.ok(second.endsWith("-1.vsconfig"));
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("no genera una configuración vacía para proyectos sin componentes VS detectados", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-vsconfig-empty-"));
+  try {
+    await writeFile(path.join(root, "README.txt"), "hello");
+    const inspection = await inspectProjectForSetup(root);
+    await assert.rejects(exportVisualStudioConfiguration(inspection), /no requiere componentes adicionales/);
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("rechaza guardar .vsconfig fuera del proyecto mediante un enlace simbólico", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-vsconfig-link-"));
+  const outside = await mkdtemp(path.join(os.tmpdir(), "jcli-vsconfig-outside-"));
+  try {
+    await writeFile(path.join(root, "Web.csproj"), '<Project Sdk="Microsoft.NET.Sdk.Web" />');
+    const inspection = await inspectProjectForSetup(root);
+    const { symlink } = await import("node:fs/promises");
+    try { await symlink(outside, path.join(root, ".troc"), "junction"); }
+    catch { return; }
+    await assert.rejects(exportVisualStudioConfiguration(inspection), /debe permanecer dentro del proyecto/);
+  } finally {
+    await rm(root, { recursive:true, force:true });
+    await rm(outside, { recursive:true, force:true });
+  }
 });

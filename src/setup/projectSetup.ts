@@ -627,6 +627,46 @@ export function buildVisualStudioComponentRequirements(
   return requirements;
 }
 
+export async function exportVisualStudioConfiguration(
+  report: SetupInspection,
+  generatedAt = new Date()
+): Promise<string> {
+  const requirements = buildVisualStudioComponentRequirements(report);
+  if (!requirements.length) {
+    throw new Error("El proyecto no requiere componentes adicionales de Visual Studio 2026 detectables.");
+  }
+  const root = await realpath(report.root);
+  const directory = path.join(root, ".troc", "configs");
+  await mkdir(directory, { recursive: true });
+  const actualDirectory = await realpath(directory);
+  const relativeDirectory = path.relative(root, actualDirectory);
+  if (!relativeDirectory || path.isAbsolute(relativeDirectory) ||
+      relativeDirectory === ".." || relativeDirectory.startsWith(".." + path.sep)) {
+    throw new Error("La carpeta de configuración debe permanecer dentro del proyecto.");
+  }
+
+  const configuration = {
+    version: "1.0",
+    components: requirements.map((item) => item.id).sort()
+  };
+  const serialized = JSON.stringify(configuration, null, 2) + "\n";
+  const timestamp = generatedAt.toISOString().replace(/[:.]/g, "-");
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const suffix = attempt === 0 ? "" : "-" + attempt;
+    const destination = path.join(actualDirectory, "visual-studio-2026-" + timestamp + suffix + ".vsconfig");
+    try {
+      await writeFile(destination, serialized, { encoding: "utf8", flag: "wx", mode: 0o600 });
+      return destination;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw new Error("No se pudo guardar el archivo de configuración de Visual Studio.");
+      }
+    }
+  }
+  throw new Error("No se pudo crear un nombre único para .vsconfig; no se sobrescribieron archivos.");
+}
+
+
 export async function inspectProjectEnvironment(report:SetupInspection):Promise<SetupDoctorReport>{
   const tools=await Promise.all(buildToolRequirements(report).map(checkRequirement));
   const ides:SetupDoctorReport["ides"]=[];
@@ -686,6 +726,9 @@ function printDoctor(report:SetupDoctorReport):void{
   if(report.inspection.databaseEngines.length){
     console.log("Un servicio activo no demuestra que una base concreta exista o acepte conexiones.");
     console.log("No se leyeron contraseñas, no se abrió conexión y no se ejecutó SQL.");
+  }
+  if (report.visualStudioComponents.some((item) => item.status === "missing")) {
+    console.log('Para preparar la selección de componentes: troc setup vsconfig "' + report.inspection.root + '" --confirm');
   }
 }
 
@@ -1004,11 +1047,14 @@ function printPlan(plan: SetupPlan): void {
   if (plan.actions.length) console.log('Para aplicar las restauraciones, ejecuta: troc setup run "' + plan.inspection.root + '" --confirm');
 }
 export async function runSetupCommand(actionName: string | undefined, args: string[]): Promise<void> {
-  if (!actionName || !["inspect","plan","run","report","doctor","db-config","db-test","all","verify"].includes(actionName)) {
-    throw new Error("Uso: troc setup <all|inspect|plan|run|report|doctor|db-config|db-test|verify> <RUTA> [PERFIL] [--confirm].");
+  if (!actionName || !["inspect","plan","run","report","doctor","db-config","db-test","all","verify","vsconfig"].includes(actionName)) {
+    throw new Error("Uso: troc setup <all|inspect|plan|run|report|doctor|db-config|db-test|verify|vsconfig> <RUTA> [PERFIL] [--confirm].");
   }
   if (!args[0]) throw new Error("Indica la ruta de la carpeta del proyecto.");
   if ((actionName === "doctor" || actionName === "db-config") && args.length !== 1) throw new Error("Este diagnóstico acepta una sola ruta de proyecto.");
+  if (actionName === "vsconfig" && (args.length !== 2 || args[1] !== "--confirm")) {
+    throw new Error('Generar .vsconfig requiere --confirm. Uso: troc setup vsconfig "' + args[0] + '" --confirm.');
+  }
   if (actionName === "report" && (args.length > 2 || (args.length === 2 && args[1] !== "--json"))) {
     throw new Error('Uso: troc setup report "' + args[0] + '" [--json].');
   }
@@ -1024,6 +1070,16 @@ export async function runSetupCommand(actionName: string | undefined, args: stri
   if (actionName !== "run" && actionName !== "db-test" && actionName !== "all" && args.length !== 1) throw new Error("Indica una sola ruta; usa comillas si contiene espacios.");
   const report = await inspectProjectForSetup(args[0]);
   if (actionName === "inspect") { printInspection(report); return; }
+  if (actionName === "vsconfig") {
+    const destination = await exportVisualStudioConfiguration(report);
+    const requirements = buildVisualStudioComponentRequirements(report);
+    console.log("Configuración de Visual Studio 2026 guardada: " + destination);
+    console.log("Componentes incluidos:");
+    for (const item of requirements) console.log("  - " + item.name + " (" + item.id + ")");
+    console.log("Abre Visual Studio Installer, elige la instancia de VS 2026 y usa Importar configuración para seleccionar este archivo.");
+    console.log("El archivo solo agrega componentes; no elimina cargas de trabajo o componentes existentes.");
+    return;
+  }
   if (actionName === "verify") {
     printVerification(await verifySetupArtifacts(report));
     return;
