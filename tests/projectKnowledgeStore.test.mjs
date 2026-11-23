@@ -93,12 +93,12 @@ test("guarda una instantánea de estructura sin guardar contenido de archivos", 
     assert.match(context, /TypeScript \(20\)/);
     assert.match(context, /Angular/);
     assert.match(context, /package.json/);
-    assert.doesNotMatch(context, /C:\\/Users\\/test/);
+    assert.equal(context.includes("C:/Users/test"), false);
 
     const records = await readdir(directory);
     assert.equal(records.length, 1);
     const file = await readFile(path.join(directory, records[0]), "utf8");
-    assert.doesNotMatch(file, /C:\\/Users\\/test/);
+    assert.equal(file.includes("C:/Users/test"), false);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
