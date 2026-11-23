@@ -140,7 +140,7 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
     "package.json", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock",
     "composer.json", "composer.lock", "requirements.txt", "pyproject.toml", "pipfile",
     "cargo.toml", "cargo.lock", "go.mod", "pom.xml", "build.gradle", "build.gradle.kts",
-    "global.json", "directory.build.props", "angular.json", "schema.prisma", "go.sum"
+    "global.json", "directory.build.props", "angular.json", "schema.prisma", "go.sum", "web.config", "app.config"
   ]);
   const extensions: Record<string, string> = {
     ".ts": "TypeScript", ".tsx": "TypeScript", ".js": "JavaScript", ".jsx": "JavaScript",
@@ -165,6 +165,11 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
       connectionFiles.push(file);
       try { collectConnectionNames(JSON.parse(await readManifest(absolute)) as unknown, connectionNames); }
       catch { /* El contenido de configuración no se muestra. */ }
+    } else if (base === "web.config" || base === "app.config") {
+      connectionFiles.push(file);
+      for (const entry of parseXmlConnectionEntries(await readManifest(absolute))) {
+        connectionNames.add(entry.name);
+      }
     }
     if (base === "package.json") {
       const dir = path.posix.dirname(file);
@@ -733,6 +738,42 @@ function printDoctor(report:SetupDoctorReport):void{
 }
 
 
+
+interface XmlConnectionEntry {
+  name: string;
+  connectionString: string;
+}
+
+function decodeXmlAttribute(value: string): string {
+  return value
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&amp;/gi, "&");
+}
+
+function parseXmlConnectionEntries(content: string): XmlConnectionEntry[] {
+  const withoutComments = content
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, "");
+  const section = withoutComments.match(/<connectionStrings\b[^>]*>([\s\S]*?)<\/connectionStrings\s*>/i);
+  if (!section) return [];
+  const entries: XmlConnectionEntry[] = [];
+  const addTag = /<add\b([^>]*?)\/?>/gi;
+  const attributePattern = /([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+  for (const tag of section[1].matchAll(addTag)) {
+    const attributes = new Map<string, string>();
+    for (const attribute of tag[1].matchAll(attributePattern)) {
+      attributes.set(attribute[1].toLowerCase(), decodeXmlAttribute(attribute[2] ?? attribute[3] ?? ""));
+    }
+    const name = attributes.get("name")?.trim();
+    const connectionString = attributes.get("connectionstring");
+    if (name && connectionString) entries.push({ name, connectionString });
+  }
+  return entries;
+}
+
 export interface DatabaseConnectionProfile {
   file:string; name:string; serverConfigured:boolean; portConfigured:boolean; databaseConfigured:boolean;
   authentication:"integrated"|"credentials"|"conflicting"|"unspecified"; environmentVariables:string[];
@@ -785,14 +826,25 @@ export async function inspectDatabaseConfiguration(report:SetupInspection):Promi
       const info=await stat(actual);
       if(!info.isFile())continue;
       const content=await readManifest(actual);
-      if(content)collectConnectionProfiles(JSON.parse(content) as unknown,file,profiles);
+      if(content){
+        const base=path.basename(file).toLowerCase();
+        if(base==="web.config"||base==="app.config"){
+          for(const entry of parseXmlConnectionEntries(content)){
+            if(/(?:server|data\s*source|host|hostname|port|database|initial\s*catalog|dbname)\s*=/i.test(entry.connectionString)){
+              profiles.push(inspectConnectionString(entry.name,file,entry.connectionString));
+            }
+          }
+        }else{
+          collectConnectionProfiles(JSON.parse(content) as unknown,file,profiles);
+        }
+      }
     }catch{/* Configuración inválida o fuera del proyecto: se omite sin mostrar su contenido. */}
   }
   return profiles.sort((a,b)=>a.file.localeCompare(b.file)||a.name.localeCompare(b.name));
 }
 function printDatabaseConfiguration(profiles:DatabaseConnectionProfile[]):void{
   console.log("JCLI Project Setup — configuración de conexiones");
-  if(!profiles.length){console.log("No se encontraron cadenas de conexión en archivos appsettings*.json.");return;}
+  if(!profiles.length){console.log("No se encontraron secciones ConnectionStrings en appsettings*.json, Web.config o App.config.");return;}
   for(const profile of profiles){
     console.log("\n"+profile.name+" ("+profile.file+")");
     console.log("  Servidor/host: "+(profile.serverConfigured?"configurado":"falta"));

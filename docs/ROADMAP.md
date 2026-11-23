@@ -304,3 +304,13 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 - [x] Alinear los informes JSON con la clasificación `credentials`.
 - [x] Resolver la ruta real de archivos `appsettings` y omitir enlaces que escapen del proyecto.
 - [x] Probar la detección integral de perfiles MySQL/PostgreSQL y el rechazo de enlaces externos.
+
+
+## V0.23.0 — Configuración de bases de datos .NET clásico
+
+- [x] Detectar \`Web.config\` y \`App.config\` como archivos de configuración de conexiones.
+- [x] Leer entradas \`<connectionStrings><add name=... connectionString=... />\` sin mostrar los valores.
+- [x] Decodificar entidades XML habituales antes de clasificar el formato de la conexión.
+- [x] Ignorar comentarios y secciones ajenas a \`connectionStrings\`.
+- [x] Mantener la verificación de ruta real para no leer archivos enlazados fuera del proyecto.
+- [x] Añadir pruebas de Web Forms/ASP.NET Framework, aplicaciones .NET clásicas y perfiles PostgreSQL en XML.

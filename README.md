@@ -174,7 +174,7 @@ Revisa el plan antes de confirmar: las restauraciones descargan paquetes y puede
 
 ### Inventario de cadenas de conexión
 
-`troc setup db-config "RUTA"` revisa las secciones `ConnectionStrings` de `appsettings*.json` y muestra si cada perfil tiene host/servidor, puerto y base configurados, además del tipo de autenticación y los nombres de variables de entorno referenciadas. Reconoce formatos habituales de SQL Server, MySQL y PostgreSQL sin inferir el motor cuando la cadena no lo identifica.
+`troc setup db-config "RUTA"` revisa las secciones `ConnectionStrings` de `appsettings*.json`, `Web.config` y `App.config` y muestra si cada perfil tiene host/servidor, puerto y base configurados, además del tipo de autenticación y los nombres de variables de entorno referenciadas. Reconoce formatos habituales de SQL Server, MySQL y PostgreSQL sin inferir el motor cuando la cadena no lo identifica.
 
 No imprime hosts, puertos, nombres de bases, usuarios ni contraseñas; tampoco resuelve variables, modifica archivos ni abre conexiones. Si detecta simultáneamente autenticación integrada y usuario explícito, lo marca como configuración mixta para revisión. Para una prueba real de SQL Server en Windows, `troc setup db-test "RUTA" NOMBRE_CONEXION --confirm` utiliza `sqlcmd` y autenticación integrada de Windows. Solo ejecuta `SET NOCOUNT ON; SELECT 1;`; usa `-X1` para impedir que `sqlcmd` cargue scripts de inicio o variables de entorno propias, no acepta inicios de sesión SQL, no imprime valores de conexión y no ejecuta migraciones ni cambios. Primero revisa los perfiles con `troc setup db-config "RUTA"`. Si el mismo nombre aparece en varios archivos, selecciona uno con `ARCHIVO::NOMBRE`.
 

@@ -113,3 +113,70 @@ test("no lee appsettings enlazado a un archivo fuera del proyecto", async () => 
     await rm(outside, { recursive:true, force:true });
   }
 });
+
+
+test("lee conexiones de Web.config para ASP.NET Framework sin revelar valores", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-web-config-"));
+  try {
+    const xml = [
+      '<?xml version="1.0"?>',
+      '<configuration>',
+      '  <connectionStrings>',
+      '    <add name="DefaultConnection" connectionString="Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=School;Integrated Security=True;Password=hidden;" providerName="System.Data.SqlClient" />',
+      '  </connectionStrings>',
+      '  <appSettings><add key="Other" value="Server=not-a-connection;Database=ignore;" /></appSettings>',
+      '</configuration>'
+    ].join("\n");
+    await writeFile(path.join(root, "Web.config"), xml);
+    const inspection = await inspectProjectForSetup(root);
+    const profiles = await inspectDatabaseConfiguration(inspection);
+    assert.ok(inspection.connectionFiles.includes("Web.config"));
+    assert.ok(inspection.connectionNames.includes("DefaultConnection"));
+    assert.equal(profiles.length, 1);
+    assert.equal(profiles[0].name, "DefaultConnection");
+    assert.equal(profiles[0].serverConfigured, true);
+    assert.equal(profiles[0].databaseConfigured, true);
+    assert.equal(profiles[0].authentication, "integrated");
+    assert.equal(JSON.stringify(profiles).includes("localdb"), false);
+    assert.equal(JSON.stringify(profiles).includes("hidden"), false);
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("lee App.config de aplicaciones .NET clásicas y decodifica entidades XML", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-app-config-"));
+  try {
+    const xml = [
+      '<?xml version="1.0"?>',
+      '<configuration>',
+      '  <connectionStrings>',
+      '    <add name="Postgres" connectionString="Host=pg.local;Port=5432;Database=inventory;Username=app;Password=hidden&amp;secret;" providerName="Npgsql" />',
+      '    <!-- <add name="Commented" connectionString="Host=ignored;Port=5432;Database=ignored;" /> -->',
+      '  </connectionStrings>',
+      '</configuration>'
+    ].join("\n");
+    await writeFile(path.join(root, "App.config"), xml);
+    const inspection = await inspectProjectForSetup(root);
+    const profiles = await inspectDatabaseConfiguration(inspection);
+    assert.ok(inspection.connectionFiles.includes("App.config"));
+    assert.deepEqual(inspection.connectionNames, ["Postgres"]);
+    assert.equal(profiles.length, 1);
+    assert.equal(profiles[0].serverConfigured, true);
+    assert.equal(profiles[0].portConfigured, true);
+    assert.equal(profiles[0].databaseConfigured, true);
+    assert.equal(profiles[0].authentication, "credentials");
+    assert.equal(JSON.stringify(profiles).includes("hidden"), false);
+    assert.equal(JSON.stringify(profiles).includes("secret"), false);
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("ignora secciones XML inválidas o sin connectionStrings", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-empty-config-"));
+  try {
+    const xml = '<configuration><appSettings><add key="x" value="Host=db;Database=x;" /></appSettings></configuration>';
+    await writeFile(path.join(root, "Web.config"), xml);
+    const inspection = await inspectProjectForSetup(root);
+    const profiles = await inspectDatabaseConfiguration(inspection);
+    assert.deepEqual(profiles, []);
+    assert.deepEqual(inspection.connectionNames, []);
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
