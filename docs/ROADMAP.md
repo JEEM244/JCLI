@@ -132,7 +132,7 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [x] Consultar servicios locales SQL Server, MySQL y PostgreSQL en Windows, con estados activo/detenido/no detectado.
 - [x] Separar herramientas requeridas de utilidades opcionales.
 - [x] Mantener el diagnóstico como operación de solo lectura, sin credenciales ni conexiones a bases de datos.
-- [ ] Probar una conexión a una base concreta con credenciales introducidas localmente y consentimiento explícito.
+- [x] Probar una conexión SQL Server concreta con autenticación integrada de Windows y consentimiento explícito (V0.14.0).
 - [ ] Preparar perfiles locales de conexión sin mostrar ni guardar contraseñas en texto plano.
 - [ ] Guiar instalación de SDK y cargas de trabajo de Visual Studio sin elevación automática.
 
@@ -142,7 +142,7 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [x] Detectar referencias `${VARIABLE}`, `$(VARIABLE)` y `%VARIABLE%` sin resolverlas.
 - [x] Mostrar únicamente nombres de variables de entorno, nunca sus valores.
 - [x] Mantener el análisis como solo lectura, sin conexión ni ejecución SQL.
-- [ ] Probar conectividad con autenticación integrada de SQL Server y consulta de solo lectura.
+- [x] Probar conectividad con autenticación integrada de SQL Server y consulta fija de solo lectura (V0.14.0).
 - [ ] Añadir perfiles locales cifrados o referencias al almacén de credenciales del sistema.
 
 
@@ -158,7 +158,7 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 ## V0.14.0 — Prueba de conexión SQL Server de solo lectura
 
 - [x] Selección explícita de un perfil de \`ConnectionStrings\` en \`appsettings*.json\`.
-- [x] Resolución en memoria de referencias \`\${VARIABLE}\`, \$(VARIABLE) y %VARIABLE% desde el entorno actual; los valores nunca se imprimen ni se guardan.
+- [x] Resolución en memoria de referencias \${VARIABLE}, $(VARIABLE) y %VARIABLE% desde el entorno actual; los valores nunca se imprimen ni se guardan.
 - [x] Primera conexión limitada a Windows Integrated Authentication mediante \`sqlcmd -E\`.
 - [x] Rechazo de perfiles con usuario o contraseña SQL, incluso si también declaran autenticación integrada.
 - [x] Consulta fija \`SET NOCOUNT ON; SELECT 1;\`; no se aceptan instrucciones SQL del usuario.
@@ -168,3 +168,11 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 ### Límites de esta versión
 
 La comprobación requiere Windows, \`sqlcmd\`, permisos de Windows sobre SQL Server y un perfil con servidor, base y autenticación integrada. La comprobación no crea bases, no ejecuta migraciones y no comprueba permisos de escritura. MySQL, PostgreSQL y autenticación SQL quedan fuera de esta primera prueba real.
+
+## Siguientes fases
+
+- [ ] Extender las comprobaciones de conexión de solo lectura a MySQL y PostgreSQL con sus mecanismos de autenticación seguros.
+- [ ] Añadir perfiles locales protegidos por el almacén de credenciales del sistema; nunca guardar contraseñas en texto plano.
+- [ ] Completar los flujos de restauración para Python, Go, Rust y Java con validación de sus gestores de paquetes.
+- [ ] Añadir un diagnóstico guiado para componentes y cargas de trabajo de Visual Studio 2026 y herramientas de SQL Server.
+- [ ] Incorporar informes de preparación exportables y una verificación posterior a cada acción.
