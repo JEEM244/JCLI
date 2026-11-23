@@ -53,10 +53,10 @@ troc project analyze WEB
 troc project git WEB
 
 # Configurador de proyectos
-troc setup inspect "C:\\Proyectos\\MVCConexion_5L1"
-troc setup plan "C:\\Proyectos\\MVCConexion_5L1"
-troc setup run "C:\\Proyectos\\MVCConexion_5L1" --confirm
-troc setup report "C:\\Proyectos\\MVCConexion_5L1"
+troc setup inspect "C:\Proyectos\MVCConexion_5L1"
+troc setup plan "C:\Proyectos\MVCConexion_5L1"
+troc setup run "C:\Proyectos\MVCConexion_5L1" --confirm
+troc setup report "C:\Proyectos\MVCConexion_5L1"
 
 # Visual Studio 2026, Visual Studio Code y SQL Server Management Studio 22
 troc ide vscode detect
@@ -136,8 +136,6 @@ troc history
 troc history 50
 ```
 
-## Entorno de desarrollo
-
 ## JCLI Project Setup
 
 El configurador recibe una ruta local y analiza lenguajes, frameworks, manifiestos, soluciones .NET, proyectos SQL, migraciones, scripts, respaldos y referencias de bases de datos. No es necesario registrar el proyecto primero.
@@ -156,9 +154,11 @@ troc setup report "C:\Proyectos\MVCConexion_5L1"
 - No se ejecutan SQL, migraciones, compilaciones ni restauraciones de respaldos. Tampoco se crean, modifican o eliminan bases de datos.
 - El análisis tiene límites de profundidad y cantidad de archivos para no recorrer carpetas de dependencias y resultados de compilación.
 
-Revisa el plan antes de confirmar: las restauraciones descargan paquetes y pueden crear o modificar carpetas de dependencias y archivos generados. No se ejecutan scripts del proyecto.
+Revisa el plan antes de confirmar: las restauraciones descargan paquetes y pueden crear o modificar carpetas de dependencias y archivos generados. En particular, npm ci reemplaza node_modules. No se ejecutan scripts del proyecto.
 
-JCLI detecta herramientas y propone comandos basándose en archivos del proyecto. No instala dependencias automáticamente.
+## Entorno de desarrollo
+
+El módulo dev detecta herramientas y propone comandos build/test basándose en archivos del proyecto, pero no instala dependencias. Para restauraciones iniciales limitadas y confirmadas, usa troc setup.
 
 | Toolchain | Detección | Comandos |
 |---|---|---|
