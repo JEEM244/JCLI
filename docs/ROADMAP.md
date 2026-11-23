@@ -291,3 +291,8 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 - [x] Mantener los nombres de variables de entorno sin resolver ni leer sus valores.
 - [x] Añadir pruebas de cadenas típicas de MySQL y PostgreSQL y casos de autenticación incompleta.
 - [x] Ampliar la documentación sin afirmar que el motor puede identificarse siempre a partir de una cadena genérica.
+
+
+## V0.22.1 — Alineación de pruebas de informes
+
+- [x] Actualizar la prueba del informe JSON a la nueva clasificación genérica `credentials` para perfiles con usuario.

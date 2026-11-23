@@ -298,7 +298,7 @@ test("exporta un informe JSON sin rutas absolutas ni valores de conexión", asyn
     assert.equal(parsed.privacy.executablePathsIncluded, false);
     assert.equal(parsed.privacy.connectionStringValuesIncluded, false);
     assert.equal(parsed.privacy.credentialsIncluded, false);
-    assert.equal(parsed.connections[0].authentication, "sql-login");
+    assert.equal(parsed.connections[0].authentication, "credentials");
     assert.ok(content.includes("DB_SECRET"));
     for (const secret of [root, "C:\\\\Users\\\\private", "localhost", "PrivateDb", "Secret42", "student", "MSSQL$SQLEXPRESS"]) {
       assert.ok(!content.includes(secret), "El informe no debe contener: " + secret);
