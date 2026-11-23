@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { inspectProjectForSetup, createSetupPlan, executeSetupPlan, isHashLockedPythonRequirements, runSetupCommand } from "../dist/setup/projectSetup.js";
+import { inspectProjectForSetup, createSetupPlan, executeSetupPlan, isHashLockedPythonRequirements, runSetupCommand, exportSetupReport } from "../dist/setup/projectSetup.js";
 
 test("analiza ASP.NET MVC y SQL Server sin exponer valores de conexión", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-mvc-"));
@@ -263,4 +263,71 @@ test("setup all exige confirmación válida antes de aceptar ejecución", async 
     await assert.rejects(runSetupCommand("all", [root, "--force"]), /Uso: troc setup all/);
     await assert.rejects(runSetupCommand("all", [root, "--confirm", "extra"]), /Uso: troc setup all/);
   } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+
+test("exporta un informe JSON sin rutas absolutas ni valores de conexión", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-report-"));
+  const fixedDate = new Date("2026-11-22T12:00:00.000Z");
+  try {
+    await writeFile(path.join(root, "appsettings.json"), JSON.stringify({
+      ConnectionStrings: {
+        Default: "Server=localhost;Database=PrivateDb;User Id=student;Password=Secret42;Passwordless=\${DB_SECRET}"
+      }
+    }));
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "demo" }));
+    await writeFile(path.join(root, "package-lock.json"), "{}");
+    const inspection = await inspectProjectForSetup(root);
+    const doctor = {
+      inspection,
+      tools: [{ id: "node", name: "Node.js", required: true, installed: true, executable: "C:\\\\Users\\\\private\\\\node.exe", version: "22.0.0", note: "Runtime" }],
+      ides: [{ name: "Visual Studio Code", installed: true, executable: "C:\\\\Users\\\\private\\\\Code.exe", details: "Instalación localizada." }],
+      databaseServices: [{ engine: "SQL Server", serviceName: "MSSQL$SQLEXPRESS", state: "running", details: "MSSQL$SQLEXPRESS (running)" }],
+      missingRequired: [],
+      visualStudioComponents: []
+    };
+    const connections = await (await import("../dist/setup/projectSetup.js")).inspectDatabaseConfiguration(inspection);
+    const plan = createSetupPlan(inspection);
+    const destination = await exportSetupReport(inspection, doctor, connections, plan, fixedDate);
+    const { readFile: readExport } = await import("node:fs/promises");
+    const content = await readExport(destination, "utf8");
+    const parsed = JSON.parse(content);
+    assert.equal(parsed.schemaVersion, 1);
+    assert.equal(parsed.generatedAt, fixedDate.toISOString());
+    assert.equal(parsed.privacy.absolutePathsIncluded, false);
+    assert.equal(parsed.privacy.executablePathsIncluded, false);
+    assert.equal(parsed.privacy.connectionStringValuesIncluded, false);
+    assert.equal(parsed.privacy.credentialsIncluded, false);
+    assert.equal(parsed.connections[0].authentication, "sql-login");
+    assert.ok(content.includes("DB_SECRET"));
+    for (const secret of [root, "C:\\\\Users\\\\private", "localhost", "PrivateDb", "Secret42", "student", "MSSQL$SQLEXPRESS"]) {
+      assert.ok(!content.includes(secret), "El informe no debe contener: " + secret);
+    }
+    const second = await exportSetupReport(inspection, doctor, connections, plan, fixedDate);
+    assert.notEqual(second, destination);
+    assert.ok(second.endsWith("-1.json"));
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("no exporta informes a través de una carpeta .troc que sale del proyecto", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-report-link-"));
+  const outside = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-report-outside-"));
+  try {
+    await writeFile(path.join(root, "README.txt"), "project");
+    const inspection = await inspectProjectForSetup(root);
+    const doctor = { inspection, tools: [], ides: [], databaseServices: [], missingRequired: [], visualStudioComponents: [] };
+    const plan = createSetupPlan(inspection);
+    const connections = [];
+    const { symlink } = await import("node:fs/promises");
+    try {
+      await symlink(outside, path.join(root, ".troc"), "junction");
+    } catch {
+      // Some runners may not grant junction creation; skip this platform-specific branch.
+      return;
+    }
+    await assert.rejects(exportSetupReport(inspection, doctor, connections, plan), /debe permanecer dentro del proyecto/);
+  } finally {
+    await rm(root, { recursive:true, force:true });
+    await rm(outside, { recursive:true, force:true });
+  }
 });

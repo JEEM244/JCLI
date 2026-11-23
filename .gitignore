@@ -15,3 +15,6 @@ data/dev-runs/
 data/patches/
 data/github/
 data/knowledge/
+
+# Informes locales de análisis de proyectos
+.troc/

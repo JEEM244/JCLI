@@ -237,3 +237,14 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 ## V0.18.1 — Ajuste de prueba integral
 
 - [x] Alinear la prueba del comando `setup all` con el mensaje real del inventario vacío de conexiones.
+
+
+## V0.19.0 — Informes de preparación exportables
+
+- [x] Convertir \`troc setup report\` en un diagnóstico integral de solo lectura.
+- [x] Añadir \`--json\` para guardar un informe legible y reutilizable.
+- [x] Omitir rutas absolutas, rutas de ejecutables, comandos completos, cadenas de conexión y credenciales.
+- [x] Guardar en \`.troc/setup-reports/\`, dentro del proyecto y excluido de Git.
+- [x] No sobrescribir informes existentes; generar nombres únicos.
+- [x] Rechazar una carpeta de informes cuya ruta real escape del proyecto.
+- [x] Añadir pruebas de privacidad, colisiones de nombres y rutas simbólicas.

@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { readdir, readFile, realpath, stat } from "node:fs/promises";
+import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -741,6 +741,100 @@ function printDatabaseConfiguration(profiles:DatabaseConnectionProfile[]):void{
   console.log("Este análisis no resuelve variables de entorno ni intenta conectarse al servidor.");
 }
 
+
+export async function exportSetupReport(
+  inspection: SetupInspection,
+  doctor: SetupDoctorReport,
+  connections: DatabaseConnectionProfile[],
+  plan: SetupPlan,
+  generatedAt = new Date()
+): Promise<string> {
+  const root = await realpath(inspection.root);
+  const reportDirectory = path.join(root, ".troc", "setup-reports");
+  await mkdir(reportDirectory, { recursive: true });
+  const actualDirectory = await realpath(reportDirectory);
+  const relativeDirectory = path.relative(root, actualDirectory);
+  if (!relativeDirectory || path.isAbsolute(relativeDirectory) ||
+      relativeDirectory === ".." || relativeDirectory.startsWith(".." + path.sep)) {
+    throw new Error("La carpeta del informe debe permanecer dentro del proyecto.");
+  }
+
+  // El informe exportado omite rutas absolutas, ejecutables locales y comandos completos.
+  const payload = {
+    schemaVersion: 1,
+    generatedAt: generatedAt.toISOString(),
+    project: {
+      name: inspection.name,
+      filesScanned: inspection.filesScanned,
+      truncated: inspection.truncated,
+      kinds: inspection.kinds,
+      languages: inspection.languages,
+      manifests: inspection.manifests,
+      solutions: inspection.solutions,
+      dotnetProjects: inspection.dotnetProjects,
+      sqlProjects: inspection.sqlProjects,
+      databaseEngines: inspection.databaseEngines,
+      databaseLibraries: inspection.databaseLibraries,
+      connectionFiles: inspection.connectionFiles,
+      connectionNames: inspection.connectionNames,
+      sqlScriptCount: inspection.sqlScripts.length,
+      migrationCount: inspection.migrations.length,
+      backupCount: inspection.backups.length,
+      warnings: inspection.warnings
+    },
+    environment: {
+      tools: doctor.tools.map((item) => ({
+        id: item.id, name: item.name, required: item.required,
+        installed: item.installed, ...(item.version ? { version: item.version } : {}),
+        note: item.note
+      })),
+      ides: doctor.ides.map((item) => ({
+        name: item.name, installed: item.installed, details: item.details
+      })),
+      visualStudioComponents: doctor.visualStudioComponents,
+      databaseServices: doctor.databaseServices.map((item) => ({
+        engine: item.engine, state: item.state, details: item.details
+      })),
+      missingRequired: doctor.missingRequired
+    },
+    connections: connections.map((item) => ({
+      file: item.file, name: item.name,
+      serverConfigured: item.serverConfigured,
+      databaseConfigured: item.databaseConfigured,
+      authentication: item.authentication,
+      environmentVariables: item.environmentVariables
+    })),
+    setupPlan: {
+      actions: plan.actions.map((item) => ({
+        id: item.id, title: item.title, description: item.description
+      })),
+      manualSteps: plan.manualSteps
+    },
+    privacy: {
+      absolutePathsIncluded: false,
+      executablePathsIncluded: false,
+      connectionStringValuesIncluded: false,
+      credentialsIncluded: false,
+      fullCommandsIncluded: false
+    }
+  };
+
+  const serialized = JSON.stringify(payload, null, 2) + "\n";
+  const safeTimestamp = generatedAt.toISOString().replace(/[:.]/g, "-");
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const suffix = attempt === 0 ? "" : "-" + attempt;
+    const destination = path.join(actualDirectory, "setup-" + safeTimestamp + suffix + ".json");
+    try {
+      await writeFile(destination, serialized, { encoding: "utf8", flag: "wx", mode: 0o600 });
+      return destination;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "EEXIST") throw new Error("No se pudo guardar el informe en la carpeta local del proyecto.");
+    }
+  }
+  throw new Error("No se pudo crear un nombre único para el informe. No se sobrescribieron archivos.");
+}
+
 function printInspection(report: SetupInspection): void {
   console.log("JCLI Project Setup — análisis");
   console.log("Proyecto: " + report.name);
@@ -783,6 +877,9 @@ export async function runSetupCommand(actionName: string | undefined, args: stri
   }
   if (!args[0]) throw new Error("Indica la ruta de la carpeta del proyecto.");
   if ((actionName === "doctor" || actionName === "db-config") && args.length !== 1) throw new Error("Este diagnóstico acepta una sola ruta de proyecto.");
+  if (actionName === "report" && (args.length > 2 || (args.length === 2 && args[1] !== "--json"))) {
+    throw new Error('Uso: troc setup report "' + args[0] + '" [--json].');
+  }
   if (actionName === "all" && (args.length > 2 || (args.length === 2 && args[1] !== "--confirm"))) {
     throw new Error('Uso: troc setup all "' + args[0] + '" [--confirm]. Sin --confirm solo genera los diagnósticos; con --confirm ejecuta las restauraciones admitidas.');
   }
@@ -794,7 +891,22 @@ export async function runSetupCommand(actionName: string | undefined, args: stri
   }
   if (actionName !== "run" && actionName !== "db-test" && actionName !== "all" && args.length !== 1) throw new Error("Indica una sola ruta; usa comillas si contiene espacios.");
   const report = await inspectProjectForSetup(args[0]);
-  if (actionName === "inspect" || actionName === "report") { printInspection(report); return; }
+  if (actionName === "inspect") { printInspection(report); return; }
+  if (actionName === "report") {
+    const doctor = await inspectProjectEnvironment(report);
+    const connections = await inspectDatabaseConfiguration(report);
+    const plan = createSetupPlan(report);
+    printInspection(report);
+    printDoctor(doctor);
+    printDatabaseConfiguration(connections);
+    printPlan(plan);
+    if (args[1] === "--json") {
+      const destination = await exportSetupReport(report, doctor, connections, plan);
+      console.log("\nInforme JSON guardado: " + destination);
+      console.log("El archivo omite rutas absolutas, ejecutables locales, comandos completos y valores de conexión.");
+    }
+    return;
+  }
   if (actionName === "doctor") { printDoctor(await inspectProjectEnvironment(report)); return; }
   if (actionName === "db-config") { printDatabaseConfiguration(await inspectDatabaseConfiguration(report)); return; }
   if (actionName === "db-test") {
