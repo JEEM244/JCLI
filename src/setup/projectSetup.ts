@@ -734,8 +734,8 @@ function printDoctor(report:SetupDoctorReport):void{
 
 
 export interface DatabaseConnectionProfile {
-  file:string; name:string; serverConfigured:boolean; databaseConfigured:boolean;
-  authentication:"integrated"|"sql-login"|"unspecified"; environmentVariables:string[];
+  file:string; name:string; serverConfigured:boolean; portConfigured:boolean; databaseConfigured:boolean;
+  authentication:"integrated"|"credentials"|"conflicting"|"unspecified"; environmentVariables:string[];
 }
 export function inspectConnectionString(name:string,file:string,value:string):DatabaseConnectionProfile {
   const fields=new Map<string,string>();
@@ -744,21 +744,28 @@ export function inspectConnectionString(name:string,file:string,value:string):Da
     const key=match[1].trim().toLowerCase().replace(/[\s_]/g,"");
     fields.set(key,(match[2]??match[3]??match[4]??"").trim());
   }
-  const server=fields.get("server")??fields.get("datasource")??fields.get("address")??fields.get("addr")??fields.get("networkaddress")??"";
-  const database=fields.get("database")??fields.get("initialcatalog")??"";
-  const integrated=["integratedsecurity","trustedconnection"].some(key=>["true","yes","sspi"].includes((fields.get(key)??"").toLowerCase()));
-  const sqlLogin=fields.has("userid")||fields.has("uid")||fields.has("user");
+  const server=["server","datasource","address","addr","networkaddress","host","hostname"]
+    .some((key)=>Boolean(fields.get(key)));
+  const port=["port","serverport"].some((key)=>Boolean(fields.get(key)));
+  const database=["database","initialcatalog","dbname","catalog"]
+    .some((key)=>Boolean(fields.get(key)));
+  const integrated=["integratedsecurity","trustedconnection"]
+    .some(key=>["true","yes","sspi"].includes((fields.get(key)??"").toLowerCase()));
+  const credentials=["userid","uid","user","username"].some(key=>Boolean(fields.get(key)));
+  const authentication=integrated&&credentials?"conflicting"
+    :integrated?"integrated":credentials?"credentials":"unspecified";
   const references=new Set<string>();
-  for(const item of value.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$\(([A-Za-z_][A-Za-z0-9_]*)\)|%([A-Za-z_][A-Za-z0-9_]*)%/g)) references.add(item[1]??item[2]??item[3]);
-  return {file,name,serverConfigured:Boolean(server),databaseConfigured:Boolean(database),
-    authentication:integrated?"integrated":sqlLogin?"sql-login":"unspecified",environmentVariables:[...references].sort()};
+  for(const item of value.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$\(([A-Za-z_][A-Za-z0-9_]*)\)|%([A-Za-z_][A-Za-z0-9_]*)%/g))
+    references.add(item[1]??item[2]??item[3]);
+  return {file,name,serverConfigured:server,portConfigured:port,databaseConfigured:database,
+    authentication,environmentVariables:[...references].sort()};
 }
 function collectConnectionProfiles(value:unknown,file:string,profiles:DatabaseConnectionProfile[]):void{
   if(!value||typeof value!=="object"||Array.isArray(value))return;
   for(const [key,child] of Object.entries(value as Record<string,unknown>)){
     if(key.toLowerCase()==="connectionstrings"&&child&&typeof child==="object"&&!Array.isArray(child)){
       for(const [name,connection] of Object.entries(child as Record<string,unknown>)){
-        if(typeof connection==="string"&&/(?:server|data\s*source|database|initial\s*catalog)\s*=/i.test(connection))
+        if(typeof connection==="string"&&/(?:server|data\s*source|host|hostname|port|database|initial\s*catalog|dbname)\s*=/i.test(connection))
           profiles.push(inspectConnectionString(name,file,connection));
       }
     }else collectConnectionProfiles(child,file,profiles);
@@ -769,7 +776,7 @@ export async function inspectDatabaseConfiguration(report:SetupInspection):Promi
   for(const file of report.connectionFiles){
     const absolute=path.resolve(report.root,file);
     const relative=path.relative(report.root,absolute);
-    if(relative.startsWith(".."+path.sep)||path.isAbsolute(relative))continue;
+    if(relative===".."||relative.startsWith(".."+path.sep)||path.isAbsolute(relative))continue;
     try{const content=await readManifest(absolute);if(content)collectConnectionProfiles(JSON.parse(content) as unknown,file,profiles);}
     catch{/* Configuración inválida: se omite sin mostrar su contenido. */}
   }
@@ -777,15 +784,20 @@ export async function inspectDatabaseConfiguration(report:SetupInspection):Promi
 }
 function printDatabaseConfiguration(profiles:DatabaseConnectionProfile[]):void{
   console.log("JCLI Project Setup — configuración de conexiones");
-  if(!profiles.length){console.log("No se encontraron cadenas de conexión .NET en archivos appsettings*.json.");return;}
+  if(!profiles.length){console.log("No se encontraron cadenas de conexión en archivos appsettings*.json.");return;}
   for(const profile of profiles){
     console.log("\n"+profile.name+" ("+profile.file+")");
-    console.log("  Servidor: "+(profile.serverConfigured?"configurado":"falta"));
+    console.log("  Servidor/host: "+(profile.serverConfigured?"configurado":"falta"));
+    console.log("  Puerto: "+(profile.portConfigured?"configurado":"no indicado"));
     console.log("  Base de datos: "+(profile.databaseConfigured?"configurada":"falta"));
-    console.log("  Autenticación: "+(profile.authentication==="integrated"?"Windows / integrada":profile.authentication==="sql-login"?"usuario SQL (credencial no mostrada)":"no identificada"));
+    const authentication=profile.authentication==="integrated"?"Windows / integrada"
+      :profile.authentication==="credentials"?"credenciales configuradas (valores ocultos)"
+      :profile.authentication==="conflicting"?"configuración mixta; revisar autenticación"
+      :"no identificada";
+    console.log("  Autenticación: "+authentication);
     console.log("  Variables de entorno referenciadas: "+(profile.environmentVariables.join(", ")||"ninguna detectada"));
   }
-  console.log("\nPor seguridad no se muestran hosts, nombres de bases, usuarios ni contraseñas.");
+  console.log("\nPor seguridad no se muestran hosts, puertos, nombres de bases, usuarios ni contraseñas.");
   console.log("Este análisis no resuelve variables de entorno ni intenta conectarse al servidor.");
 }
 
@@ -974,6 +986,7 @@ export async function exportSetupReport(
     connections: connections.map((item) => ({
       file: item.file, name: item.name,
       serverConfigured: item.serverConfigured,
+      portConfigured: item.portConfigured,
       databaseConfigured: item.databaseConfigured,
       authentication: item.authentication,
       environmentVariables: item.environmentVariables

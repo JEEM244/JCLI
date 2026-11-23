@@ -281,3 +281,13 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 
 - [x] Permitir la ruta y `--confirm` en el validador general de argumentos.
 - [x] Añadir una prueba de extremo a extremo del comando `troc setup vsconfig`.
+
+
+## V0.22.0 — Inventario de conexiones multi-motor
+
+- [x] Reconocer claves \`Host\`, \`Hostname\`, \`Port\`, \`Dbname\` y \`Username\` además de claves SQL Server.
+- [x] Mostrar solo indicadores de presencia para host, puerto y base; nunca los valores.
+- [x] Clasificar autenticación integrada, credenciales, configuración mixta o no identificada.
+- [x] Mantener los nombres de variables de entorno sin resolver ni leer sus valores.
+- [x] Añadir pruebas de cadenas típicas de MySQL y PostgreSQL y casos de autenticación incompleta.
+- [x] Ampliar la documentación sin afirmar que el motor puede identificarse siempre a partir de una cadena genérica.
