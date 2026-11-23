@@ -689,13 +689,6 @@ export async function runCli(args: string[]): Promise<void> {
       console.log("Abriendo " + path.basename(solution) + " en Visual Studio 2026.");
       return;
     }
-    if (ideName === "ssms22" && ideAction === "detect") {
-      const result = await detectSSMS22();
-      console.log(result.name + ": " + (result.installed ? "detectado" : "no detectado"));
-      if (result.executable) console.log("Ejecutable: " + result.executable);
-      console.log(result.details);
-      return;
-    }
     if (ideName === "ssms22" && ideAction === "external-tool" && projectId) {
       const project = await projects.get(projectId);
       if (!project) throw new Error("No se encontró el proyecto " + projectId + ".");
@@ -706,7 +699,7 @@ export async function runCli(args: string[]): Promise<void> {
       console.log("Título: JCLI — inspeccionar archivo SQL");
       console.log("Comando: troc.cmd");
       console.log("Argumentos: ide ssms22 inspect \"" + project.id + "\" \"$(ItemPath)\"");
-      console.log("Directorio inicial: $(ItemDir)");
+      console.log("Directorio inicial: " + process.cwd());
       console.log("Usar ventana de resultados: Sí");
       console.log("Tratar salida como Unicode: Sí");
       console.log("Abre un archivo .sql guardado y ejecuta la herramienta desde el menú Herramientas.");

@@ -173,7 +173,7 @@ JCLI detecta SSMS 22 en su ruta de instalación habitual. Para una instalación 
 
 1. Ejecuta `troc ide ssms22 external-tool ID` y conserva los valores mostrados.
 2. En SSMS abre **Herramientas > Herramientas externas** y agrega una entrada con el título indicado.
-3. Usa `troc.cmd` como comando y copia los argumentos que genera JCLI. El argumento `$(ItemPath)` apunta al archivo actual del editor y el directorio inicial `$(ItemDir)` a su carpeta.
+3. Usa `troc.cmd` como comando y copia los argumentos que genera JCLI. El argumento `$(ItemPath)` apunta al archivo actual del editor. Como directorio inicial, pega la ruta absoluta que muestra JCLI; debe ser la carpeta desde donde JCLI lee `data/projects/projects.json`.
 4. Activa **Usar ventana de resultados** y **Tratar salida como Unicode**.
 5. Abre un archivo `.sql` guardado y ejecuta la nueva herramienta desde el menú **Herramientas**.
 
