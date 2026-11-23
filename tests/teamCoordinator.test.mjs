@@ -81,11 +81,26 @@ test("prepara y ejecuta agentes en orden, comparte resultados y registra la revi
     const history = {
       record: async (...args) => { events.push(args); }
     };
-    const coordinator = new TeamCoordinator(tasks, projects, ai, registry, runs, history);
+    const memory = {
+      get: async (projectId) => ({
+        projectId,
+        updatedAt: "2026-11-22T12:00:00.000Z",
+        summary: "Aplicación web con API independiente.",
+        notes: [{ id: "note-1", content: "Mantener rutas REST consistentes.", createdAt: "" }],
+        decisions: [{ id: "decision-1", title: "Persistencia", decision: "Usar MySQL.", createdAt: "" }],
+        structure: { generatedAt: "", filesScanned: 12, languages: [], technologies: ["PHP"], manifests: [], gitRepository: true }
+      }),
+      getContext: async () => "REGLA HISTÓRICA: usar endpoints REST versionados."
+    };
+    const coordinator = new TeamCoordinator(tasks, projects, ai, registry, runs, history, memory);
 
     const plan = await coordinator.plan(task.id, ["README.md"]);
     assert.equal(plan.estimatedRequests, 4);
     assert.deepEqual(plan.files, ["README.md"]);
+    assert.equal(plan.memorySummary, true);
+    assert.equal(plan.memoryNotes, 1);
+    assert.equal(plan.memoryDecisions, 1);
+    assert.equal(plan.memoryStructure, true);
     assert.equal(prompts.length, 0);
 
     process.env.JCLI_ENABLE_TEAM_RUNS = "true";
@@ -97,6 +112,8 @@ test("prepara y ejecuta agentes en orden, comparte resultados y registra la revi
     assert.equal(prompts[1].provider, "deepseek");
     assert.equal(prompts[2].provider, "anthropic");
     assert.equal(prompts[3].provider, "gemini");
+    assert.match(prompts[0].prompt, /REGLA HISTÓRICA: usar endpoints REST versionados/);
+    assert.match(prompts[1].prompt, /REGLA HISTÓRICA/);
     assert.match(prompts[1].prompt, /Propuesta de openai/);
     assert.match(prompts[2].prompt, /Propuesta de deepseek/);
     assert.match(prompts[3].prompt, /Propuesta de anthropic/);

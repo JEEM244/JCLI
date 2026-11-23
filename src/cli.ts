@@ -21,6 +21,7 @@ import { GitService } from "./git/gitService.js";
 import { GitHubClient } from "./github/githubClient.js";
 import { GitHubService } from "./github/githubService.js";
 import { GitHubIssueLinkStore } from "./github/issueLinkStore.js";
+import { ProjectKnowledgeStore } from "./knowledge/projectKnowledgeStore.js";
 import { analyzeProject } from "./projects/projectAnalyzer.js";
 import { inspectGit } from "./projects/gitInspector.js";
 import { detectVSCode, detectVisualStudio2026 } from "./integrations/ide/detector.js";
@@ -33,7 +34,8 @@ const ai = new AIService();
 const aiUsage = new AIUsageStore();
 const agentRegistry = new AgentRegistry();
 const teamRuns = new TeamRunStore();
-const team = new TeamCoordinator(store, projects, ai, agentRegistry, teamRuns, history);
+const knowledge = new ProjectKnowledgeStore();
+const team = new TeamCoordinator(store, projects, ai, agentRegistry, teamRuns, history, knowledge);
 const devRuns = new DevRunStore();
 const dev = new DevService(projects, undefined, devRuns, history);
 const patchStore = new PatchStore();
@@ -80,6 +82,16 @@ function help(): void {
     "  troc patch reject <ID>",
     "  troc patch apply <ID> --confirm",
     "  troc patch rollback <ID> --confirm",
+    "  troc memory show <PROYECTO>",
+    "  troc memory summary <PROYECTO> <TEXTO...>",
+    "  troc memory scan <PROYECTO>",
+    "  troc memory context <PROYECTO>",
+    "  troc memory note add <PROYECTO> <TEXTO...>",
+    "  troc memory note list <PROYECTO>",
+    "  troc memory note remove <PROYECTO> <ID_NOTA>",
+    "  troc memory decision add <PROYECTO> <TÍTULO> <DECISIÓN> [CONTEXTO...]",
+    "  troc memory decision list <PROYECTO>",
+    "  troc memory decision remove <PROYECTO> <ID_DECISIÓN>",
     "  troc git status <PROYECTO>",
     "  troc git diff <PROYECTO> [--staged] [ARCHIVO]",
     "  troc git stage <PROYECTO> <ARCHIVO...> --confirm",
@@ -861,6 +873,120 @@ export async function runCli(args: string[]): Promise<void> {
     throw new Error("Uso de patch no válido. Ejecuta troc help.");
   }
 
+
+  if (group === "memory") {
+    const projectId = action === "note" || action === "decision" ? rest[1] : rest[0];
+    if (!projectId) throw new Error("Indica el ID de un proyecto registrado.");
+    const project = await projects.get(projectId);
+    if (!project) throw new Error("No se encontró el proyecto " + projectId + ".");
+
+    if (action === "show" && rest.length === 1) {
+      const data = await knowledge.get(project.id);
+      console.log("Memoria técnica: " + project.name + " (" + project.id + ")");
+      console.log("Actualizada: " + (data.updatedAt || "sin registros"));
+      console.log("\nResumen:");
+      console.log(data.summary || "Todavía no hay resumen.");
+      console.log("\nEstructura:");
+      if (!data.structure) console.log("Sin análisis guardado. Usa troc memory scan " + project.id + ".");
+      else {
+        console.log("Fecha: " + data.structure.generatedAt);
+        console.log("Archivos revisados: " + data.structure.filesScanned);
+        console.log("Lenguajes: " + (data.structure.languages.map((item) => item.name + " (" + item.files + ")").join(", ") || "ninguno"));
+        console.log("Tecnologías: " + (data.structure.technologies.join(", ") || "ninguna"));
+        console.log("Manifiestos: " + (data.structure.manifests.join(", ") || "ninguno"));
+      }
+      console.log("\nNotas: " + data.notes.length);
+      for (const item of data.notes) console.log("  " + item.id + " | " + item.content);
+      console.log("\nDecisiones: " + data.decisions.length);
+      for (const item of data.decisions) {
+        console.log("  " + item.id + " | " + item.title + ": " + item.decision);
+        if (item.context) console.log("    Contexto: " + item.context);
+      }
+      return;
+    }
+
+    if (action === "summary" && rest.length >= 2) {
+      const summary = await knowledge.setSummary(project.id, rest.slice(1).join(" "));
+      await history.record("memory.summary_updated", project.id, "Resumen de memoria actualizado para " + project.name);
+      console.log("Resumen guardado para " + project.name + ".");
+      console.log("Caracteres: " + (summary.summary?.length ?? 0));
+      return;
+    }
+
+    if (action === "scan" && rest.length === 1) {
+      if (!existsSync(project.directory)) throw new Error("La carpeta del proyecto ya no existe.");
+      const analysis = await analyzeProject(project.directory, 2500);
+      const snapshot = await knowledge.saveStructure(project.id, analysis);
+      await history.record("memory.structure_scanned", project.id,
+        "Estructura analizada (" + snapshot.filesScanned + " archivos revisados)");
+      console.log("Estructura guardada para " + project.name + ".");
+      console.log("Archivos revisados: " + snapshot.filesScanned);
+      console.log("Lenguajes: " + (snapshot.languages.map((item) => item.name).join(", ") || "ninguno"));
+      console.log("Tecnologías: " + (snapshot.technologies.join(", ") || "ninguna"));
+      console.log("Manifiestos: " + (snapshot.manifests.join(", ") || "ninguno"));
+      console.log("No se guardó el contenido de los archivos fuente.");
+      return;
+    }
+
+    if (action === "context" && rest.length === 1) {
+      const context = await knowledge.getContext(project.id);
+      console.log(context || "Todavía no hay memoria técnica para este proyecto.");
+      return;
+    }
+
+    if (action === "note") {
+      const [noteAction, , ...contentParts] = rest;
+      if (noteAction === "add" && contentParts.length) {
+        const note = await knowledge.addNote(project.id, contentParts.join(" "));
+        await history.record("memory.note_added", note.id, "Nota agregada a " + project.name);
+        console.log("Nota guardada: " + note.id);
+        return;
+      }
+      if (noteAction === "list" && rest.length === 2) {
+        const data = await knowledge.get(project.id);
+        if (!data.notes.length) return console.log("No hay notas para este proyecto.");
+        for (const item of data.notes) console.log(item.id + " | " + item.createdAt + " | " + item.content);
+        return;
+      }
+      if (noteAction === "remove" && contentParts.length === 1) {
+        const removed = await knowledge.removeNote(project.id, contentParts[0]);
+        await history.record("memory.note_removed", removed.id, "Nota retirada de " + project.name);
+        console.log("Nota eliminada: " + removed.id);
+        return;
+      }
+    }
+
+    if (action === "decision") {
+      const [decisionAction, , ...parts] = rest;
+      if (decisionAction === "add" && parts.length >= 2) {
+        const [title, decision, ...contextParts] = parts;
+        const entry = await knowledge.addDecision(project.id, title, decision, contextParts.join(" "));
+        await history.record("memory.decision_added", entry.id,
+          "Decisión técnica registrada: " + entry.title + " (" + project.name + ")");
+        console.log("Decisión guardada: " + entry.id);
+        return;
+      }
+      if (decisionAction === "list" && rest.length === 2) {
+        const data = await knowledge.get(project.id);
+        if (!data.decisions.length) return console.log("No hay decisiones registradas para este proyecto.");
+        for (const item of data.decisions) {
+          console.log(item.id + " | " + item.title + ": " + item.decision);
+          if (item.context) console.log("  Contexto: " + item.context);
+        }
+        return;
+      }
+      if (decisionAction === "remove" && parts.length === 1) {
+        const removed = await knowledge.removeDecision(project.id, parts[0]);
+        await history.record("memory.decision_removed", removed.id,
+          "Decisión técnica retirada: " + removed.title + " (" + project.name + ")");
+        console.log("Decisión eliminada: " + removed.id);
+        return;
+      }
+    }
+
+    throw new Error("Uso de memoria no válido. Ejecuta troc help.");
+  }
+
   if (group === "team") {
     if (action === "agents") {
       const agents = await agentRegistry.list();
@@ -889,6 +1015,9 @@ export async function runCli(args: string[]): Promise<void> {
       console.log("Agentes (" + plan.estimatedRequests + " solicitudes estimadas):");
       for (const agent of plan.agents) console.log("  " + agent.id + " — " + agent.name + " [" + agent.provider + "]");
       console.log("Archivos enviados: " + (plan.files.join(", ") || "ninguno"));
+      console.log("Memoria del proyecto: " + (plan.memorySummary ? "resumen" : "sin resumen") +
+        " | estructura: " + (plan.memoryStructure ? "sí" : "no") +
+        " | notas: " + (plan.memoryNotes ?? 0) + " | decisiones: " + (plan.memoryDecisions ?? 0));
       if (action === "plan") {
         console.log("\nEste comando solo prepara el plan; no contacta proveedores.");
         return;

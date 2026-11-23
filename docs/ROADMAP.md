@@ -93,6 +93,16 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [x] Requerir token, habilitación doble y --confirm para publicaciones.
 - [x] Mantener deshabilitados push y operaciones remotas destructivas.
 
+## V0.9 — Memoria técnica por proyecto
+- [x] Guardar un resumen técnico independiente por proyecto.
+- [x] Registrar, listar y eliminar notas del proyecto.
+- [x] Registrar, listar y eliminar decisiones con contexto.
+- [x] Generar una instantánea de lenguajes, tecnologías y manifiestos sin copiar archivos fuente.
+- [x] Integrar automáticamente el contexto persistente en los planes y prompts multiagente.
+- [x] Mostrar las entradas de memoria incluidas en el plan del equipo.
+- [x] Limitar el tamaño y cantidad de registros y redactar patrones comunes de secretos.
+- [x] Guardar la memoria fuera de Git con identificación local por hash.
+
 ## Principios
 
 - Priorizar Windows 11 y PowerShell 7.

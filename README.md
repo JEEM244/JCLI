@@ -76,6 +76,16 @@ troc providers models gemini
 troc ai ask deepseek "Resume este fragmento de código"
 troc ai usage
 
+# Memoria técnica por proyecto
+troc memory show WEB
+troc memory summary WEB "Panel administrativo para gestionar solicitudes."
+troc memory scan WEB
+troc memory note add WEB "El login utiliza sesiones del servidor."
+troc memory note list WEB
+troc memory decision add WEB "Base de datos" "Mantener MySQL por ahora" "La aplicación ya utiliza MySQL."
+troc memory decision list WEB
+troc memory context WEB
+
 # Equipo multiagente
 troc team agents
 troc tasks agents WEB-001 planner,implementer,reviewer,tester
@@ -293,3 +303,20 @@ Las consultas de repositorios públicos pueden funcionar sin token. Para privado
 JCLI no implementa `push`, fusión, cierre de PRs/Issues ni cambios de permisos.
 
 Versión actual: **0.8.0**.
+
+## V0.9 — Memoria técnica por proyecto
+
+Cada proyecto registrado puede mantener una memoria local independiente de sus archivos de código:
+
+- `troc memory summary ID TEXTO...`: guarda el resumen del proyecto y su objetivo.
+- `troc memory scan ID`: guarda una instantánea de estructura a partir de un análisis limitado (lenguajes, tecnologías, manifiestos y presencia de Git).
+- `troc memory note add ID TEXTO...`, `note list` y `note remove`: administra notas técnicas.
+- `troc memory decision add ID TITULO DECISION [CONTEXTO...]`, `decision list` y `decision remove`: registra decisiones y su motivo.
+- `troc memory show ID`: muestra la memoria completa del proyecto.
+- `troc memory context ID`: muestra el contexto que se compartiría con los agentes.
+
+Los análisis de estructura revisan como máximo 2,500 entradas y no almacenan el contenido de los archivos fuente. La memoria guarda metadatos del análisis, no copias de código. Notas y decisiones son información escrita por el usuario. Se limitan a 100 registros de cada tipo; las notas y decisiones tienen límites individuales de longitud. Se ocultan patrones comunes de credenciales al guardar.
+
+Los registros viven en `data/knowledge/projects/`, se identifican mediante un hash del ID del proyecto y están excluidos de Git. La memoria se incorpora automáticamente a `troc team plan` y al contexto de cada agente. Se trata como dato histórico no confiable, no como instrucciones del sistema. Para compartirla con APIs se siguen aplicando los permisos y límites de llamadas multiagente ya configurados.
+
+Versión actual: **0.9.0**.

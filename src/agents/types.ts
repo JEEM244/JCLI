@@ -58,4 +58,8 @@ export interface TeamPlan {
   agents: AgentDefinition[];
   files: string[];
   estimatedRequests: number;
+  memorySummary?: boolean;
+  memoryNotes?: number;
+  memoryDecisions?: number;
+  memoryStructure?: boolean;
 }

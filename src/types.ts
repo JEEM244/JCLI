@@ -37,6 +37,12 @@ export type HistoryAction =
   | "github.issue_created"
   | "github.issue_linked"
   | "github.issue_unlinked";
+  | "memory.summary_updated"
+  | "memory.note_added"
+  | "memory.note_removed"
+  | "memory.decision_added"
+  | "memory.decision_removed"
+  | "memory.structure_scanned";
 
 export interface HistoryEntry {
   id: string;
