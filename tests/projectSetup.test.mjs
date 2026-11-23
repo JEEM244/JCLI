@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { inspectProjectForSetup, createSetupPlan, executeSetupPlan, isHashLockedPythonRequirements, runSetupCommand, exportSetupReport } from "../dist/setup/projectSetup.js";
+import { inspectProjectForSetup, createSetupPlan, executeSetupPlan, isHashLockedPythonRequirements, runSetupCommand, exportSetupReport, verifySetupArtifacts } from "../dist/setup/projectSetup.js";
 
 test("analiza ASP.NET MVC y SQL Server sin exponer valores de conexión", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-mvc-"));
@@ -330,4 +330,79 @@ test("no exporta informes a través de una carpeta .troc que sale del proyecto",
     await rm(root, { recursive:true, force:true });
     await rm(outside, { recursive:true, force:true });
   }
+});
+
+
+test("verifica artefactos Node, Composer, Python y .NET sin ejecutar herramientas", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-verify-"));
+  try {
+    await mkdir(path.join(root, "web", "node_modules"), { recursive:true });
+    await mkdir(path.join(root, "php", "vendor"), { recursive:true });
+    await mkdir(path.join(root, "python", ".venv", process.platform === "win32" ? "Scripts" : "bin"), { recursive:true });
+    await mkdir(path.join(root, "dotnet", "obj"), { recursive:true });
+    await writeFile(path.join(root, "web", "package.json"), JSON.stringify({ name:"web" }));
+    await writeFile(path.join(root, "web", "package-lock.json"), "{}");
+    await writeFile(path.join(root, "php", "composer.json"), JSON.stringify({ require:{ "vendor/package":"^1.0" } }));
+    await writeFile(path.join(root, "php", "composer.lock"), "{}");
+    await writeFile(path.join(root, "python", "requirements.txt"), "flask>=3.0\n");
+    await writeFile(path.join(root, "python", ".venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python"), "");
+    await writeFile(path.join(root, "dotnet", "App.csproj"), '<Project Sdk="Microsoft.NET.Sdk" />');
+    await writeFile(path.join(root, "dotnet", "obj", "project.assets.json"), "{}");
+    const inspection = await inspectProjectForSetup(root);
+    const results = await verifySetupArtifacts(inspection);
+    assert.equal(results.find((item) => item.id === "node:web")?.status, "ready");
+    assert.equal(results.find((item) => item.id === "composer:php")?.status, "ready");
+    assert.equal(results.find((item) => item.id === "python:python")?.status, "ready");
+    assert.equal(results.find((item) => item.id === "dotnet:dotnet/App.csproj")?.status, "ready");
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("marca como faltantes los artefactos de dependencias no restaurados", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-verify-missing-"));
+  try {
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ name:"web" }));
+    await writeFile(path.join(root, "package-lock.json"), "{}");
+    await writeFile(path.join(root, "requirements.txt"), "flask>=3.0\n");
+    const inspection = await inspectProjectForSetup(root);
+    const results = await verifySetupArtifacts(inspection);
+    assert.equal(results.find((item) => item.id === "node:.")?.status, "missing");
+    assert.equal(results.find((item) => item.id === "python:.")?.status, "missing");
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("no sigue enlaces simbólicos al verificar carpetas de dependencias", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-verify-link-"));
+  const outside = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-verify-outside-"));
+  try {
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ name:"web" }));
+    await writeFile(path.join(root, "package-lock.json"), "{}");
+    const { symlink } = await import("node:fs/promises");
+    try {
+      await symlink(outside, path.join(root, "node_modules"), "junction");
+    } catch {
+      return;
+    }
+    const inspection = await inspectProjectForSetup(root);
+    const results = await verifySetupArtifacts(inspection);
+    assert.equal(results.find((item) => item.id === "node:.")?.status, "unsafe");
+  } finally {
+    await rm(root, { recursive:true, force:true });
+    await rm(outside, { recursive:true, force:true });
+  }
+});
+
+test("clasifica Go, Rust y Java como verificación manual en vez de afirmar que fueron restaurados", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-verify-manual-"));
+  try {
+    await writeFile(path.join(root, "go.mod"), "module example.test/app\n");
+    await writeFile(path.join(root, "go.sum"), "example.test/lib v1.0.0 h1:abc=\n");
+    await writeFile(path.join(root, "Cargo.toml"), '[package]\nname="demo"\nversion="0.1.0"\n');
+    await writeFile(path.join(root, "Cargo.lock"), "version = 3\n");
+    await writeFile(path.join(root, "pom.xml"), "<project />");
+    const inspection = await inspectProjectForSetup(root);
+    const results = await verifySetupArtifacts(inspection);
+    assert.equal(results.find((item) => item.id.startsWith("go:"))?.status, "manual");
+    assert.equal(results.find((item) => item.id.startsWith("rust:"))?.status, "manual");
+    assert.equal(results.find((item) => item.id.startsWith("java:"))?.status, "manual");
+  } finally { await rm(root, { recursive:true, force:true }); }
 });

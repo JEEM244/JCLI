@@ -253,3 +253,14 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 ## V0.19.1 — Protección adicional de identificadores locales
 
 - [x] Generalizar los detalles de servicios de bases de datos en informes exportados y no incluir sus nombres de Windows.
+
+
+## V0.20.0 — Verificación posterior de preparación
+
+- [x] Añadir \`troc setup verify <RUTA>\` para comprobar artefactos locales sin ejecutar builds ni scripts.
+- [x] Comprobar \`node_modules\`, \`vendor\`, intérpretes de entornos Python y \`obj/project.assets.json\` de .NET.
+- [x] Marcar rutas con enlaces simbólicos como no verificables y no seguirlas.
+- [x] Clasificar las cachés globales de Go/Rust y los gestores Java como revisión manual cuando no se pueden comprobar de forma segura.
+- [x] Mostrar verificación en \`setup all\` y repetirla después de las restauraciones confirmadas.
+- [x] Incluir el resultado en informes JSON sin añadir rutas absolutas.
+- [x] Añadir pruebas de artefactos presentes/ausentes, enlaces simbólicos y gestores manuales.

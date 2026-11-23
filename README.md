@@ -59,6 +59,7 @@ troc setup inspect "C:\Proyectos\MVCConexion_5L1"
 troc setup plan "C:\Proyectos\MVCConexion_5L1"
 troc setup run "C:\Proyectos\MVCConexion_5L1" --confirm
 troc setup report "C:\Proyectos\MVCConexion_5L1"
+troc setup verify "C:\Proyectos\MVCConexion_5L1"
 troc setup report "C:\Proyectos\MVCConexion_5L1" --json
 troc setup doctor "C:\Proyectos\MVCConexion_5L1"
 troc setup db-config "C:\Proyectos\MVCConexion_5L1"
@@ -155,13 +156,15 @@ troc setup run "C:\Proyectos\MVCConexion_5L1" --confirm
 troc setup report "C:\Proyectos\MVCConexion_5L1"
 ```
 
-- inspect solo lee el proyecto. `report` reúne análisis, diagnóstico, conexiones y plan; `report --json` guarda un informe en `.troc/setup-reports/` sin rutas absolutas, ejecutables locales ni valores de conexión.
+- inspect solo lee el proyecto. `report` reúne análisis, diagnóstico, conexiones y plan; `report --json` guarda un informe en `.troc/setup-reports/` sin rutas absolutas, ejecutables locales ni valores de conexión. La verificación aparece en `report` y también puede consultarse por separado con `verify`; solo inspecciona artefactos locales y no ejecuta código.
 - plan separa las restauraciones automáticas de los pasos manuales para Visual Studio 2026, SSMS 22 y bases de datos.
 - run --confirm puede restaurar .NET, Composer y dependencias JavaScript, Python, Go y Rust cuando encuentra sus lockfiles y condiciones de seguridad. En JavaScript respeta `packageManager` y no elige entre lockfiles contradictorios.
 - Python: JCLI crea `.venv` cuando no existe. Solo instala automáticamente un `requirements.txt` si todas las dependencias tienen versión exacta y hash SHA-256; usa `pip --require-hashes --only-binary=:all:` para evitar compilar paquetes desde código fuente. Si no cumple el formato estricto, deja la instalación como paso manual.
 - Go: `go mod download` requiere `go.sum`. Rust: `cargo fetch --locked` requiere `Cargo.lock`; ambas operaciones solo descargan dependencias y no compilan el proyecto.
 - No se ejecutan SQL, migraciones, compilaciones ni restauraciones de respaldos. Tampoco se crean, modifican o eliminan bases de datos.
 - El análisis tiene límites de profundidad y cantidad de archivos para no recorrer carpetas de dependencias y resultados de compilación.
+
+`verify` comprueba carpetas y archivos esperados como `node_modules`, `vendor`, intérpretes de `.venv` y `obj/project.assets.json`. Marca Go/Rust/Java como manual cuando la caché de dependencias no puede verificarse sin ejecutar herramientas.
 
 Los informes se crean solo al usar `troc setup report "RUTA" --json`; no se sobrescriben archivos anteriores y `.troc/` está excluida de Git.
 

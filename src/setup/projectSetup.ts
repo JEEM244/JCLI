@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -37,6 +37,11 @@ export interface SetupAction {
 export interface SetupPlan {
   inspection: SetupInspection; actions: SetupAction[]; manualSteps: string[];
 }
+export interface SetupVerificationItem {
+  id: string; title: string; status: "ready" | "missing" | "manual" | "unsafe";
+  target: string; details: string;
+}
+
 export interface SetupRunResult {
   actionId: string; title: string; status: "success" | "failed" | "timeout";
   exitCode: number | null; durationMs: number; stdout: string; stderr: string;
@@ -742,12 +747,137 @@ function printDatabaseConfiguration(profiles:DatabaseConnectionProfile[]):void{
 }
 
 
+
+async function inspectLocalArtifact(
+  root: string,
+  relativePath: string,
+  expected: "file" | "directory"
+): Promise<"present" | "missing" | "unsafe"> {
+  const segments = relativePath.split(/[\\/]+/).filter(Boolean);
+  if (!segments.length || segments.some((segment) => segment === "." || segment === "..")) return "unsafe";
+  let current = root;
+  for (let index = 0; index < segments.length; index++) {
+    current = path.join(current, segments[index]);
+    try {
+      const info = await lstat(current);
+      if (info.isSymbolicLink()) return "unsafe";
+      const isLast = index === segments.length - 1;
+      if (!isLast && !info.isDirectory()) return "missing";
+      if (isLast) {
+        return expected === "directory"
+          ? (info.isDirectory() ? "present" : "missing")
+          : (info.isFile() ? "present" : "missing");
+      }
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "ENOTDIR") return "missing";
+      return "unsafe";
+    }
+  }
+  return "missing";
+}
+
+export async function verifySetupArtifacts(
+  inspection: SetupInspection,
+  platform: NodeJS.Platform = process.platform
+): Promise<SetupVerificationItem[]> {
+  const root = await realpath(inspection.root);
+  const items: SetupVerificationItem[] = [];
+  const add = async (
+    id: string, title: string, target: string, expected: "file" | "directory",
+    readyDetails: string, missingDetails: string
+  ): Promise<void> => {
+    const state = await inspectLocalArtifact(root, target, expected);
+    items.push({
+      id, title, target,
+      status: state === "present" ? "ready" : state === "unsafe" ? "unsafe" : "missing",
+      details: state === "present" ? readyDetails
+        : state === "unsafe" ? "El destino contiene un enlace simbólico o una ruta no verificable; no se siguió."
+        : missingDetails
+    });
+  };
+
+  for (const directory of inspection.packageDirectories) {
+    const target = path.posix.join(directory === "." ? "" : directory, "node_modules");
+    await add("node:" + directory, "Dependencias Node.js", target, "directory",
+      "La carpeta node_modules existe.", "No existe node_modules; revisa el lockfile y ejecuta la restauración confirmada.");
+  }
+  for (const directory of inspection.composerDirectories) {
+    const target = path.posix.join(directory === "." ? "" : directory, "vendor");
+    await add("composer:" + directory, "Dependencias Composer", target, "directory",
+      "La carpeta vendor existe.", "No existe vendor; revisa composer.lock y ejecuta la restauración confirmada.");
+  }
+  for (const directory of inspection.pythonDirectories) {
+    const environment = inspection.pythonEnvironments.find((folder) =>
+      path.posix.dirname(folder) === directory);
+    if (!environment) {
+      items.push({
+        id: "python:" + directory, title: "Entorno virtual Python",
+        status: "missing", target: path.posix.join(directory === "." ? "" : directory, ".venv"),
+        details: "No se detectó .venv ni venv."
+      });
+      continue;
+    }
+    const interpreter = platform === "win32"
+      ? path.posix.join(environment, "Scripts", "python.exe")
+      : path.posix.join(environment, "bin", "python");
+    await add("python:" + directory, "Entorno virtual Python", interpreter, "file",
+      "Se encontró el intérprete del entorno virtual.", "Existe la carpeta del entorno, pero no se encontró su intérprete.");
+  }
+  for (const project of inspection.dotnetProjects) {
+    const directory = path.posix.dirname(project);
+    const target = path.posix.join(directory === "." ? "" : directory, "obj", "project.assets.json");
+    await add("dotnet:" + project, "Restauración .NET", target, "file",
+      "Existe obj/project.assets.json.", "No se encontró project.assets.json; ejecuta dotnet restore y revisa el resultado.");
+  }
+  for (const file of inspection.manifests.filter((item) => path.posix.basename(item).toLowerCase() === "go.mod")) {
+    items.push({
+      id: "go:" + file, title: "Módulos Go", status: "manual", target: file,
+      details: "La caché de módulos es global; JCLI no ejecuta go mod verify durante una comprobación de solo lectura."
+    });
+  }
+  for (const file of inspection.manifests.filter((item) => path.posix.basename(item).toLowerCase() === "cargo.toml")) {
+    items.push({
+      id: "rust:" + file, title: "Crates Rust", status: "manual", target: file,
+      details: "La caché de Cargo es global; JCLI no verifica descargas ejecutando Cargo en este diagnóstico."
+    });
+  }
+  for (const file of inspection.manifests.filter((item) =>
+    ["pom.xml", "build.gradle", "build.gradle.kts"].includes(path.posix.basename(item).toLowerCase()))) {
+    items.push({
+      id: "java:" + file, title: "Dependencias Java", status: "manual", target: file,
+      details: "La resolución Maven/Gradle requiere ejecutar plugins o scripts del proyecto y queda pendiente de revisión explícita."
+    });
+  }
+  if (!items.length) {
+    items.push({
+      id: "none", title: "Dependencias del proyecto", status: "manual", target: ".",
+      details: "No se detectaron artefactos de dependencias que JCLI pueda verificar de forma local."
+    });
+  }
+  return items;
+}
+
+function printVerification(items: SetupVerificationItem[]): void {
+  console.log("\nJCLI Project Setup — verificación local");
+  for (const item of items) {
+    const label = item.status === "ready" ? "OK"
+      : item.status === "missing" ? "FALTA"
+      : item.status === "unsafe" ? "NO VERIFICADO"
+      : "MANUAL";
+    console.log("  [" + label + "] " + item.title + " — " + item.target);
+    console.log("    " + item.details);
+  }
+  console.log("La verificación solo inspecciona el sistema de archivos; no ejecuta builds, scripts, instalaciones ni consultas a bases de datos.");
+}
+
 export async function exportSetupReport(
   inspection: SetupInspection,
   doctor: SetupDoctorReport,
   connections: DatabaseConnectionProfile[],
   plan: SetupPlan,
-  generatedAt = new Date()
+  generatedAt = new Date(),
+  verification: SetupVerificationItem[] = []
 ): Promise<string> {
   const root = await realpath(inspection.root);
   const reportDirectory = path.join(root, ".troc", "setup-reports");
@@ -811,6 +941,7 @@ export async function exportSetupReport(
       })),
       manualSteps: plan.manualSteps
     },
+    verification,
     privacy: {
       absolutePathsIncluded: false,
       executablePathsIncluded: false,
@@ -873,8 +1004,8 @@ function printPlan(plan: SetupPlan): void {
   if (plan.actions.length) console.log('Para aplicar las restauraciones, ejecuta: troc setup run "' + plan.inspection.root + '" --confirm');
 }
 export async function runSetupCommand(actionName: string | undefined, args: string[]): Promise<void> {
-  if (!actionName || !["inspect","plan","run","report","doctor","db-config","db-test","all"].includes(actionName)) {
-    throw new Error("Uso: troc setup <all|inspect|plan|run|report|doctor|db-config|db-test> <RUTA> [PERFIL] [--confirm].");
+  if (!actionName || !["inspect","plan","run","report","doctor","db-config","db-test","all","verify"].includes(actionName)) {
+    throw new Error("Uso: troc setup <all|inspect|plan|run|report|doctor|db-config|db-test|verify> <RUTA> [PERFIL] [--confirm].");
   }
   if (!args[0]) throw new Error("Indica la ruta de la carpeta del proyecto.");
   if ((actionName === "doctor" || actionName === "db-config") && args.length !== 1) throw new Error("Este diagnóstico acepta una sola ruta de proyecto.");
@@ -893,16 +1024,22 @@ export async function runSetupCommand(actionName: string | undefined, args: stri
   if (actionName !== "run" && actionName !== "db-test" && actionName !== "all" && args.length !== 1) throw new Error("Indica una sola ruta; usa comillas si contiene espacios.");
   const report = await inspectProjectForSetup(args[0]);
   if (actionName === "inspect") { printInspection(report); return; }
+  if (actionName === "verify") {
+    printVerification(await verifySetupArtifacts(report));
+    return;
+  }
   if (actionName === "report") {
     const doctor = await inspectProjectEnvironment(report);
     const connections = await inspectDatabaseConfiguration(report);
     const plan = createSetupPlan(report);
+    const verification = await verifySetupArtifacts(report);
     printInspection(report);
     printDoctor(doctor);
     printDatabaseConfiguration(connections);
     printPlan(plan);
+    printVerification(verification);
     if (args[1] === "--json") {
-      const destination = await exportSetupReport(report, doctor, connections, plan);
+      const destination = await exportSetupReport(report, doctor, connections, plan, new Date(), verification);
       console.log("\nInforme JSON guardado: " + destination);
       console.log("El archivo omite rutas absolutas, ejecutables locales, comandos completos y valores de conexión.");
     }
@@ -925,6 +1062,7 @@ export async function runSetupCommand(actionName: string | undefined, args: stri
     printDatabaseConfiguration(await inspectDatabaseConfiguration(report));
     const fullPlan = createSetupPlan(report);
     printPlan(fullPlan);
+    printVerification(await verifySetupArtifacts(report));
     if (args[1] !== "--confirm") {
       console.log("\nNo se ejecutó ninguna acción ni se modificó el proyecto.");
       console.log('Para ejecutar únicamente las restauraciones admitidas, vuelve a usar: troc setup all "' + args[0] + '" --confirm');
@@ -944,6 +1082,8 @@ export async function runSetupCommand(actionName: string | undefined, args: stri
       if (result.stdout) console.log(result.stdout);
       if (result.stderr) console.log("Salida de error:\n" + result.stderr);
     }
+    const refreshed = await inspectProjectForSetup(args[0]);
+    printVerification(await verifySetupArtifacts(refreshed));
     if (fullResults.some((item) => item.status !== "success")) {
       throw new Error("Una o más restauraciones fallaron; las acciones posteriores se detuvieron.");
     }
@@ -962,5 +1102,7 @@ export async function runSetupCommand(actionName: string | undefined, args: stri
     if (result.stdout) console.log(result.stdout);
     if (result.stderr) console.log("Salida de error:\n" + result.stderr);
   }
+  const refreshed = await inspectProjectForSetup(args[0]);
+  printVerification(await verifySetupArtifacts(refreshed));
   if (results.some((item) => item.status !== "success")) throw new Error("Una o más restauraciones fallaron; revisa los resultados.");
 }
