@@ -319,3 +319,13 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 ## V0.23.1 — Actualización de prueba de salida
 
 - [x] Alinear la prueba del preflight integral con el mensaje de inventario de `appsettings*.json`, `Web.config` y `App.config`.
+
+
+## V0.23.2 — Pruebas SQL Server desde configuración XML
+
+- [x] Compartir un lector acotado de entradas `connectionStrings` XML entre el inventario y la prueba de conexión.
+- [x] Permitir que `db-test` lea perfiles de `Web.config` y `App.config`, además de `appsettings*.json`.
+- [x] Mantener comentarios y secciones ajenas a `connectionStrings` fuera de la selección de perfiles.
+- [x] Conservar validación de rutas reales, límite de tamaño, autenticación integrada y consulta fija de solo lectura.
+- [x] Permitir seleccionar nombres duplicados mediante `ARCHIVO::NOMBRE`.
+- [x] Añadir pruebas con ejecutor simulado para ambos formatos XML; CI no intenta conexiones reales.

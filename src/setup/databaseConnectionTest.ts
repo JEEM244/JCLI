@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import type { SetupInspection } from "./projectSetup.js";
+import { parseXmlConnectionEntries } from "./connectionConfig.js";
 
 const execFileAsync = promisify(execFile);
 const MAX_CONFIG_SIZE = 384 * 1024;
@@ -118,7 +119,15 @@ async function readProfiles(report: SetupInspection): Promise<InternalProfile[]>
       if (path.isAbsolute(actualRelative) || actualRelative === ".." || actualRelative.startsWith(".." + path.sep)) continue;
       const info = await stat(actual);
       if (!info.isFile() || info.size > MAX_CONFIG_SIZE) continue;
-      collectProfiles(JSON.parse(await readFile(actual, "utf8")) as unknown, file, profiles);
+      const content = await readFile(actual, "utf8");
+      const base = path.basename(file).toLowerCase();
+      if (base === "web.config" || base === "app.config") {
+        for (const entry of parseXmlConnectionEntries(content)) {
+          profiles.push({ file, name: entry.name, connectionString: entry.connectionString });
+        }
+      } else {
+        collectProfiles(JSON.parse(content) as unknown, file, profiles);
+      }
     } catch {
       // No se muestran contenidos ni errores de archivos de configuración.
     }
@@ -132,7 +141,7 @@ function chooseProfile(profiles: InternalProfile[], selector: string): InternalP
     ? profiles.filter((item) => item.file.toLowerCase() === selector.slice(0, separator).toLowerCase() &&
       item.name.toLowerCase() === selector.slice(separator + 2).toLowerCase())
     : profiles.filter((item) => item.name.toLowerCase() === selector.toLowerCase());
-  if (!matches.length) throw new Error("No se encontró el perfil de conexión indicado en appsettings*.json.");
+  if (!matches.length) throw new Error("No se encontró el perfil de conexión indicado en los archivos de configuración compatibles.");
   if (matches.length > 1) {
     const choices = matches.map((item) => item.file + "::" + item.name).join(", ");
     throw new Error("El perfil aparece en varios archivos. Selecciona uno con ARCHIVO::NOMBRE: " + choices);

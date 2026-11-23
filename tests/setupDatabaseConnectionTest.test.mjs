@@ -152,3 +152,85 @@ test("no permite ejecutar una prueba sin confirmación o fuera de Windows", asyn
     await data.cleanup();
   }
 });
+
+
+async function xmlFixture(filename, contents) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-db-xml-"));
+  await writeFile(path.join(root, filename), contents, "utf8");
+  return { root, report: await inspectProjectForSetup(root), cleanup: () => rm(root, { recursive: true, force: true }) };
+}
+
+test("db-test lee perfiles XML de Web.config y App.config", async () => {
+  for (const filename of ["Web.config", "App.config"]) {
+    const data = await xmlFixture(filename, `<?xml version="1.0"?>
+<configuration>
+  <appSettings>
+    <add key="Ignored" value="Server=elsewhere;Database=Other;" />
+  </appSettings>
+  <connectionStrings>
+    <!-- <add name="Commented" connectionString="Server=invalid;Database=bad;Integrated Security=True;" /> -->
+    <add name="DefaultConnection"
+      connectionString="Server=localhost;Database=School;Integrated Security=True;Application Name=Web &amp; API;"
+      providerName="System.Data.SqlClient" />
+  </connectionStrings>
+</configuration>`);
+    try {
+      let captured;
+      const result = await executeDatabaseConnectionTest(data.report, "DefaultConnection", true, {
+        platform: "win32",
+        env: {},
+        resolveExecutable: async () => "sqlcmd.exe",
+        runner: async (executable, args, timeout, env) => {
+          captured = { executable, args, timeout, env };
+          return { exitCode: 0, timedOut: false };
+        }
+      });
+      assert.equal(result.status, "success");
+      assert.equal(result.file, filename);
+      assert.ok(captured.args.includes("localhost"));
+      assert.ok(captured.args.includes("School"));
+      assert.ok(captured.args.includes(READ_ONLY_PROBE_QUERY));
+      assert.ok(captured.args.includes("-E"));
+      assert.ok(!captured.args.some((arg) => /Web & API|elsewhere|Commented/.test(arg)));
+    } finally {
+      await data.cleanup();
+    }
+  }
+});
+
+test("permite seleccionar un perfil XML duplicado usando ARCHIVO::NOMBRE", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-db-xml-duplicate-"));
+  try {
+    await writeFile(path.join(root, "appsettings.json"), JSON.stringify({
+      ConnectionStrings: { Main: "Server=json-host;Database=JsonDb;Integrated Security=True;" }
+    }), "utf8");
+    await writeFile(path.join(root, "Web.config"), `<configuration>
+  <connectionStrings>
+    <add name="Main" connectionString="Server=xml-host;Database=XmlDb;Integrated Security=True;" />
+  </connectionStrings>
+</configuration>`, "utf8");
+    const report = await inspectProjectForSetup(root);
+    const result = await executeDatabaseConnectionTest(report, "Web.config::Main", true, {
+      platform: "win32",
+      env: {},
+      resolveExecutable: async () => "sqlcmd.exe",
+      runner: async (_executable, args) => {
+        assert.ok(args.includes("xml-host"));
+        assert.ok(args.includes("XmlDb"));
+        return { exitCode: 0, timedOut: false };
+      }
+    });
+    assert.equal(result.file, "Web.config");
+    await assert.rejects(
+      executeDatabaseConnectionTest(report, "Main", true, {
+        platform: "win32",
+        env: {},
+        resolveExecutable: async () => "sqlcmd.exe",
+        runner: async () => ({ exitCode: 0, timedOut: false })
+      }),
+      /ARCHIVO::NOMBRE/
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
