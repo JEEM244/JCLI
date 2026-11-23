@@ -250,7 +250,7 @@ test("setup all ofrece un preflight completo sin modificar el proyecto por defec
     await runSetupCommand("all", [root]);
     const rendered = output.join("\n");
     assert.ok(rendered.includes("No se ejecutó ninguna acción"));
-    assert.ok(rendered.includes("No se encontraron cadenas de conexión en archivos appsettings*.json"));
+    assert.ok(rendered.includes("No se encontraron secciones ConnectionStrings en appsettings*.json, Web.config o App.config"));
   } finally {
     console.log = originalLog;
     await rm(root, { recursive:true, force:true });

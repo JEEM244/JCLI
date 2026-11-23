@@ -314,3 +314,8 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 - [x] Ignorar comentarios y secciones ajenas a \`connectionStrings\`.
 - [x] Mantener la verificación de ruta real para no leer archivos enlazados fuera del proyecto.
 - [x] Añadir pruebas de Web Forms/ASP.NET Framework, aplicaciones .NET clásicas y perfiles PostgreSQL en XML.
+
+
+## V0.23.1 — Actualización de prueba de salida
+
+- [x] Alinear la prueba del preflight integral con el mensaje de inventario de `appsettings*.json`, `Web.config` y `App.config`.
