@@ -271,6 +271,7 @@ export async function executeDatabaseConnectionTest(
     "-l", "8",
     "-h", "-1",
     "-W",
+    "-X1",
     "-Q", READ_ONLY_PROBE_QUERY
   ];
   const started = Date.now();

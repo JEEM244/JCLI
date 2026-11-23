@@ -33,6 +33,7 @@ test("prueba SQL Server con autenticación integrada y consulta fija de solo lec
     assert.equal(result.file, "appsettings.json");
     assert.equal(captured.executable, "sqlcmd.exe");
     assert.ok(captured.args.includes("-E"));
+    assert.ok(captured.args.includes("-X1"));
     assert.ok(captured.args.includes(READ_ONLY_PROBE_QUERY));
     assert.ok(captured.args.includes("localhost"));
     assert.ok(captured.args.includes("School"));
