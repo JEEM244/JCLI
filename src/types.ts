@@ -36,7 +36,7 @@ export type HistoryAction =
   | "github.pr_created"
   | "github.issue_created"
   | "github.issue_linked"
-  | "github.issue_unlinked";
+  | "github.issue_unlinked"
   | "memory.summary_updated"
   | "memory.note_added"
   | "memory.note_removed"
