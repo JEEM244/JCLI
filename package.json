@@ -1,6 +1,6 @@
 {
   "name": "jcli",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "private": true,
   "description": "Centro de control local para proyectos, entornos de desarrollo, bases de datos, automatización segura e integraciones de IA.",
   "type": "module",

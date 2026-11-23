@@ -177,7 +177,7 @@ Además de detectar la instalación de Visual Studio 2026, `troc setup doctor` r
 - Proyectos dirigidos a .NET Framework 4.8 o 4.8.1: paquete de destino correspondiente.
 - Proyectos SQL SSDT clásicos: SQL Server Data Tools.
 
-Los proyectos SQL SDK-style (\`Microsoft.Build.Sql\`) no se marcan como dependientes del SSDT clásico. La detección consulta \`vswhere\` y es solo lectura. Si falta un componente, abre Visual Studio Installer y revisa la carga de trabajo correspondiente manualmente; JCLI no instala ni modifica componentes.
+Los proyectos SQL SDK-style (`Microsoft.Build.Sql`) no se marcan como dependientes del SSDT clásico. La detección consulta `vswhere` y es solo lectura. Si falta un componente, abre Visual Studio Installer y revisa la carga de trabajo correspondiente manualmente; JCLI no instala ni modifica componentes.
 
 
 `troc setup doctor "RUTA"` comprueba herramientas requeridas por el proyecto (Node.js/npm, .NET, PHP/Composer, Python, Go, Rust o Java), busca Visual Studio 2026, VS Code y SSMS 22 cuando aplican, y consulta servicios locales de SQL Server, MySQL o PostgreSQL en Windows.

@@ -99,6 +99,7 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
 
   const paths = files.map((file) => rel(root, file));
   const lower = paths.map((file) => file.toLowerCase());
+  const packageLockfiles: Record<string, string[]> = {};
   const has = (file: string): boolean => lower.includes(file.toLowerCase());
   for (const file of paths) {
     const base = path.posix.basename(file).toLowerCase();
@@ -126,7 +127,6 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
   const packageDirectories: string[] = [];
   const composerDirectories: string[] = [];
   const packageManagerHints: Record<string, string> = {};
-  const packageLockfiles: Record<string, string[]> = {};
   const yarnBerryDirectories = new Set<string>();
   const pythonDirectories = new Set<string>();
   const pythonRequirementsFiles: string[] = [];

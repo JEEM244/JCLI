@@ -184,21 +184,21 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 
 - [x] Detectar proyectos ASP.NET Framework clásicos a partir de referencias web del proyecto.
 - [x] Distinguir proyectos SQL SDK-style de proyectos SSDT clásicos.
-- [x] Consultar con \`vswhere\` la presencia de herramientas ASP.NET y desarrollo web.
+- [x] Consultar con `vswhere` la presencia de herramientas ASP.NET y desarrollo web.
 - [x] Comprobar los targeting packs .NET Framework 4.8 y 4.8.1 cuando el proyecto los declara.
-- [x] Comprobar SQL Server Data Tools en proyectos \`.sqlproj\` clásicos.
+- [x] Comprobar SQL Server Data Tools en proyectos `.sqlproj` clásicos.
 - [x] Mostrar estados disponible, faltante o no comprobable, sin abrir Visual Studio Installer ni modificar la instalación.
 - [x] Probar el mapeo de componentes y sus estados con pruebas automatizadas.
 
 
 ## V0.16.0 — Restauración conservadora de Python, Go y Rust
 
-- [x] Detectar entornos \`.venv\`/ \`venv\` existentes y no recrearlos.
+- [x] Detectar entornos `.venv`/ `venv` existentes y no recrearlos.
 - [x] Crear un entorno virtual Python cuando no existe, sin instalar ni ejecutar paquetes.
-- [x] Reconocer \`requirements.txt\` solo cuando todas sus entradas están fijadas con \`==\` y hashes SHA-256.
-- [x] Permitir instalación pip únicamente con \`--require-hashes\` y \`--only-binary=:all:\`.
-- [x] Descargar módulos Go solo si existe \`go.sum\`.
-- [x] Descargar crates Rust solo si existe \`Cargo.lock\`, con \`cargo fetch --locked\`.
+- [x] Reconocer `requirements.txt` solo cuando todas sus entradas están fijadas con `==` y hashes SHA-256.
+- [x] Permitir instalación pip únicamente con `--require-hashes` y `--only-binary=:all:`.
+- [x] Descargar módulos Go solo si existe `go.sum`.
+- [x] Descargar crates Rust solo si existe `Cargo.lock`, con `cargo fetch --locked`.
 - [x] Detener las acciones posteriores cuando falle una restauración previa.
 - [x] Añadir pruebas para los lockfiles, restricciones Python y orden de ejecución.
 - [ ] Añadir soporte Java Maven/Gradle y gestores Python lockfile-first después de validar sus límites de ejecución.
@@ -206,8 +206,13 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 
 ## V0.17.0 — Selección segura del gestor JavaScript
 
-- [x] Leer el campo \`packageManager\` del \`package.json\`.
+- [x] Leer el campo `packageManager` del `package.json`.
 - [x] Agrupar lockfiles por carpeta y evitar instalaciones si existen varios lockfiles.
 - [x] Rechazar gestores no compatibles en lugar de elegir npm como alternativa.
 - [x] Distinguir Yarn clásico y Yarn Berry y usar sus opciones inmutables correspondientes.
 - [x] Añadir avisos de conflictos durante el análisis y casos de prueba.
+
+
+## V0.17.1 — Corrección de inicialización
+
+- [x] Inicializar el inventario de lockfiles antes de recorrerlo; la compilación TypeScript vuelve a ejecutarse en CI.
