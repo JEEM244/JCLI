@@ -136,6 +136,16 @@ La hoja de ruta es incremental: cada etapa debe quedar utilizable antes de ampli
 - [ ] Preparar perfiles locales de conexión sin mostrar ni guardar contraseñas en texto plano.
 - [ ] Guiar instalación de SDK y cargas de trabajo de Visual Studio sin elevación automática.
 
+## V0.13 — Inventario seguro de conexiones
+- [x] Leer secciones ConnectionStrings de appsettings*.json sin imprimir valores.
+- [x] Identificar si cada perfil declara servidor, base y tipo de autenticación.
+- [x] Detectar referencias `${VARIABLE}`, `$(VARIABLE)` y `%VARIABLE%` sin resolverlas.
+- [x] Mostrar únicamente nombres de variables de entorno, nunca sus valores.
+- [x] Mantener el análisis como solo lectura, sin conexión ni ejecución SQL.
+- [ ] Probar conectividad con autenticación integrada de SQL Server y consulta de solo lectura.
+- [ ] Añadir perfiles locales cifrados o referencias al almacén de credenciales del sistema.
+
+
 ## Principios
 
 - Priorizar Windows 11 y PowerShell 7.

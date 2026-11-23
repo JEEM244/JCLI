@@ -76,6 +76,7 @@ function help(): void {
     "  troc setup run <RUTA> --confirm",
     "  troc setup report <RUTA>",
     "  troc setup doctor <RUTA>",
+    "  troc setup db-config <RUTA>",
     "  troc dev inspect <ID_PROYECTO>",
     "  troc dev plan <ID_PROYECTO> <build|test>",
     "  troc dev run <ID_PROYECTO> <build|test> --confirm",

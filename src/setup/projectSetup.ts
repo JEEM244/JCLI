@@ -470,6 +470,63 @@ function printDoctor(report:SetupDoctorReport):void{
   }
 }
 
+
+export interface DatabaseConnectionProfile {
+  file:string; name:string; serverConfigured:boolean; databaseConfigured:boolean;
+  authentication:"integrated"|"sql-login"|"unspecified"; environmentVariables:string[];
+}
+export function inspectConnectionString(name:string,file:string,value:string):DatabaseConnectionProfile {
+  const fields=new Map<string,string>();
+  const pattern=/(?:^|;)\s*([^=;]+)\s*=\s*(?:"((?:[^"]|"")*)"|'((?:[^']|'')*)'|([^;]*))/g;
+  for(const match of value.matchAll(pattern)){
+    const key=match[1].trim().toLowerCase().replace(/[\s_]/g,"");
+    fields.set(key,(match[2]??match[3]??match[4]??"").trim());
+  }
+  const server=fields.get("server")??fields.get("datasource")??fields.get("address")??fields.get("addr")??fields.get("networkaddress")??"";
+  const database=fields.get("database")??fields.get("initialcatalog")??"";
+  const integrated=["integratedsecurity","trustedconnection"].some(key=>["true","yes","sspi"].includes((fields.get(key)??"").toLowerCase()));
+  const sqlLogin=fields.has("userid")||fields.has("uid")||fields.has("user");
+  const references=new Set<string>();
+  for(const item of value.matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$\(([A-Za-z_][A-Za-z0-9_]*)\)|%([A-Za-z_][A-Za-z0-9_]*)%/g)) references.add(item[1]??item[2]??item[3]);
+  return {file,name,serverConfigured:Boolean(server),databaseConfigured:Boolean(database),
+    authentication:integrated?"integrated":sqlLogin?"sql-login":"unspecified",environmentVariables:[...references].sort()};
+}
+function collectConnectionProfiles(value:unknown,file:string,profiles:DatabaseConnectionProfile[]):void{
+  if(!value||typeof value!=="object"||Array.isArray(value))return;
+  for(const [key,child] of Object.entries(value as Record<string,unknown>)){
+    if(key.toLowerCase()==="connectionstrings"&&child&&typeof child==="object"&&!Array.isArray(child)){
+      for(const [name,connection] of Object.entries(child as Record<string,unknown>)){
+        if(typeof connection==="string"&&/(?:server|data\s*source|database|initial\s*catalog)\s*=/i.test(connection))
+          profiles.push(inspectConnectionString(name,file,connection));
+      }
+    }else collectConnectionProfiles(child,file,profiles);
+  }
+}
+export async function inspectDatabaseConfiguration(report:SetupInspection):Promise<DatabaseConnectionProfile[]>{
+  const profiles:DatabaseConnectionProfile[]=[];
+  for(const file of report.connectionFiles){
+    const absolute=path.resolve(report.root,file);
+    const relative=path.relative(report.root,absolute);
+    if(relative.startsWith(".."+path.sep)||path.isAbsolute(relative))continue;
+    try{const content=await readManifest(absolute);if(content)collectConnectionProfiles(JSON.parse(content) as unknown,file,profiles);}
+    catch{/* Configuración inválida: se omite sin mostrar su contenido. */}
+  }
+  return profiles.sort((a,b)=>a.file.localeCompare(b.file)||a.name.localeCompare(b.name));
+}
+function printDatabaseConfiguration(profiles:DatabaseConnectionProfile[]):void{
+  console.log("JCLI Project Setup — configuración de conexiones");
+  if(!profiles.length){console.log("No se encontraron cadenas de conexión .NET en archivos appsettings*.json.");return;}
+  for(const profile of profiles){
+    console.log("\n"+profile.name+" ("+profile.file+")");
+    console.log("  Servidor: "+(profile.serverConfigured?"configurado":"falta"));
+    console.log("  Base de datos: "+(profile.databaseConfigured?"configurada":"falta"));
+    console.log("  Autenticación: "+(profile.authentication==="integrated"?"Windows / integrada":profile.authentication==="sql-login"?"usuario SQL (credencial no mostrada)":"no identificada"));
+    console.log("  Variables de entorno referenciadas: "+(profile.environmentVariables.join(", ")||"ninguna detectada"));
+  }
+  console.log("\nPor seguridad no se muestran hosts, nombres de bases, usuarios ni contraseñas.");
+  console.log("Este análisis no resuelve variables de entorno ni intenta conectarse al servidor.");
+}
+
 function printInspection(report: SetupInspection): void {
   console.log("JCLI Project Setup — análisis");
   console.log("Proyecto: " + report.name);
@@ -507,11 +564,11 @@ function printPlan(plan: SetupPlan): void {
   if (plan.actions.length) console.log('Para aplicar las restauraciones, ejecuta: troc setup run "' + plan.inspection.root + '" --confirm');
 }
 export async function runSetupCommand(actionName: string | undefined, args: string[]): Promise<void> {
-  if (!actionName || !["inspect","plan","run","report","doctor"].includes(actionName)) {
-    throw new Error("Uso: troc setup <inspect|plan|run|report|doctor> <RUTA> [--confirm].");
+  if (!actionName || !["inspect","plan","run","report","doctor","db-config"].includes(actionName)) {
+    throw new Error("Uso: troc setup <inspect|plan|run|report|doctor|db-config> <RUTA> [--confirm].");
   }
   if (!args[0]) throw new Error("Indica la ruta de la carpeta del proyecto.");
-  if (actionName === "doctor" && args.length !== 1) throw new Error("Doctor acepta una sola ruta de proyecto.");
+  if ((actionName === "doctor" || actionName === "db-config") && args.length !== 1) throw new Error("Este diagnóstico acepta una sola ruta de proyecto.");
   if (actionName === "run" && (args.length !== 2 || args[1] !== "--confirm")) {
     throw new Error('La ejecución requiere --confirm. Consulta primero: troc setup plan "' + args[0] + '".');
   }
@@ -519,6 +576,7 @@ export async function runSetupCommand(actionName: string | undefined, args: stri
   const report = await inspectProjectForSetup(args[0]);
   if (actionName === "inspect" || actionName === "report") { printInspection(report); return; }
   if (actionName === "doctor") { printDoctor(await inspectProjectEnvironment(report)); return; }
+  if (actionName === "db-config") { printDatabaseConfiguration(await inspectDatabaseConfiguration(report)); return; }
   const plan = createSetupPlan(report);
   if (actionName === "plan") { printPlan(plan); return; }
   printPlan(plan);

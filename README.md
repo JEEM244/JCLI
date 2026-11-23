@@ -58,6 +58,7 @@ troc setup plan "C:\Proyectos\MVCConexion_5L1"
 troc setup run "C:\Proyectos\MVCConexion_5L1" --confirm
 troc setup report "C:\Proyectos\MVCConexion_5L1"
 troc setup doctor "C:\Proyectos\MVCConexion_5L1"
+troc setup db-config "C:\Proyectos\MVCConexion_5L1"
 
 # Visual Studio 2026, Visual Studio Code y SQL Server Management Studio 22
 troc ide vscode detect
@@ -157,6 +158,12 @@ troc setup report "C:\Proyectos\MVCConexion_5L1"
 
 Revisa el plan antes de confirmar: las restauraciones descargan paquetes y pueden crear o modificar carpetas de dependencias y archivos generados. En particular, npm ci reemplaza node_modules. No se ejecutan scripts del proyecto.
 
+
+### Inventario de cadenas de conexión
+
+`troc setup db-config "RUTA"` revisa las secciones `ConnectionStrings` de `appsettings*.json` y muestra si cada perfil tiene servidor/base configurados, el tipo de autenticación y los nombres de variables de entorno referenciadas.
+
+No imprime hosts, nombres de bases, usuarios ni contraseñas; tampoco resuelve variables, modifica archivos ni abre conexiones. No sustituye una prueba real de conectividad.
 
 ### Diagnóstico del equipo
 
