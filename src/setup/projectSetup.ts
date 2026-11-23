@@ -23,6 +23,8 @@ export interface SetupInspection {
   connectionFiles: string[]; connectionNames: string[];
   sqlScripts: string[]; migrations: string[]; backups: string[];
   packageDirectories: string[]; composerDirectories: string[];
+  pythonDirectories: string[]; pythonRequirementsFiles: string[];
+  pythonHashLockedRequirements: string[]; pythonEnvironments: string[];
   requirements: string[]; warnings: string[];
 }
 export interface SetupAction {
@@ -40,6 +42,15 @@ type Runner = (executable: string, args: string[], cwd: string) =>
   Promise<Omit<SetupRunResult, "actionId" | "title">>;
 
 const rel = (root: string, file: string): string => path.relative(root, file).split(path.sep).join("/");
+
+export function isHashLockedPythonRequirements(content: string): boolean {
+  const lines = content.split(/\r?\n/).map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+  if (!lines.length) return false;
+  const requirement = /^[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,.-]+\])?==[A-Za-z0-9][A-Za-z0-9.+_-]*(?:\s+--hash=sha256:[a-f0-9]{64})+$/i;
+  return lines.every((line) => requirement.test(line));
+}
+
 async function readManifest(file: string): Promise<string> {
   try {
     const info = await stat(file);
@@ -63,6 +74,7 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
   if (!(await stat(root)).isDirectory()) throw new Error("La ruta indicada no es una carpeta.");
 
   const files: string[] = [];
+  const pythonEnvironments: string[] = [];
   let truncated = false;
   async function walk(dir: string, depth: number): Promise<void> {
     if (depth > MAX_DEPTH || files.length >= MAX_FILES) { truncated = true; return; }
@@ -72,7 +84,9 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
     for (const entry of entries) {
       if (files.length >= MAX_FILES) { truncated = true; break; }
       if (entry.isDirectory()) {
-        if (!IGNORED.has(entry.name.toLowerCase()) && !entry.name.startsWith(".")) {
+        if ([".venv", "venv"].includes(entry.name.toLowerCase())) {
+          pythonEnvironments.push(rel(root, path.join(dir, entry.name)));
+        } else if (!IGNORED.has(entry.name.toLowerCase()) && !entry.name.startsWith(".")) {
           await walk(path.join(dir, entry.name), depth + 1);
         }
       } else if (entry.isFile()) files.push(path.join(dir, entry.name));
@@ -101,11 +115,14 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
   const requirements = new Set<string>();
   const packageDirectories: string[] = [];
   const composerDirectories: string[] = [];
+  const pythonDirectories = new Set<string>();
+  const pythonRequirementsFiles: string[] = [];
+  const pythonHashLockedRequirements: string[] = [];
   const manifestNames = new Set([
     "package.json", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock",
     "composer.json", "composer.lock", "requirements.txt", "pyproject.toml", "pipfile",
     "cargo.toml", "cargo.lock", "go.mod", "pom.xml", "build.gradle", "build.gradle.kts",
-    "global.json", "directory.build.props", "angular.json", "schema.prisma"
+    "global.json", "directory.build.props", "angular.json", "schema.prisma", "go.sum"
   ]);
   const extensions: Record<string, string> = {
     ".ts": "TypeScript", ".tsx": "TypeScript", ".js": "JavaScript", ".jsx": "JavaScript",
@@ -161,7 +178,13 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
     }
     if (["requirements.txt", "pyproject.toml", "pipfile"].includes(base)) {
       kinds.add("Python"); requirements.add("Python");
+      const directory = path.posix.dirname(file);
+      pythonDirectories.add(directory);
       const content = await readManifest(absolute);
+      if (base === "requirements.txt") {
+        pythonRequirementsFiles.push(file);
+        if (isHashLockedPythonRequirements(content)) pythonHashLockedRequirements.push(file);
+      }
       if (/sqlalchemy|pymysql|mysqlclient/i.test(content)) libraries.add("SQLAlchemy / MySQL");
       if (/psycopg/i.test(content)) { engines.add("PostgreSQL"); libraries.add("psycopg"); }
       if (/pyodbc|pymssql/i.test(content)) { engines.add("SQL Server"); libraries.add("pyodbc / pymssql"); }
@@ -227,6 +250,10 @@ export async function inspectProjectForSetup(input: string): Promise<SetupInspec
     sqlScripts, migrations, backups,
     packageDirectories: [...new Set(packageDirectories)].sort(),
     composerDirectories: [...new Set(composerDirectories)].sort(),
+    pythonDirectories: [...pythonDirectories].sort(),
+    pythonRequirementsFiles: [...new Set(pythonRequirementsFiles)].sort(),
+    pythonHashLockedRequirements: [...new Set(pythonHashLockedRequirements)].sort(),
+    pythonEnvironments: [...new Set(pythonEnvironments)].sort(),
     requirements: [...requirements].sort(), warnings
   };
 }
@@ -272,7 +299,69 @@ export function createSetupPlan(report: SetupInspection): SetupPlan {
         "composer install --no-interaction --no-scripts --no-plugins"));
     } else manualSteps.push("Composer: no hay composer.lock en " + dir + "; revisa las versiones antes de instalar.");
   }
-  if (report.requirements.includes("Python")) manualSteps.push("Python: crear un entorno virtual y revisar requirements.txt/pyproject.toml antes de instalar.");
+  for (const directory of report.pythonDirectories) {
+    const requirementFiles = report.pythonRequirementsFiles.filter((file) =>
+      path.posix.dirname(file) === directory);
+    const hashLockedFiles = report.pythonHashLockedRequirements.filter((file) =>
+      path.posix.dirname(file) === directory);
+    const existingEnvironment = report.pythonEnvironments.find((folder) =>
+      path.posix.dirname(folder) === directory);
+    const environmentRelative = existingEnvironment ??
+      path.posix.join(directory === "." ? "" : directory, ".venv");
+    const environmentAbsolute = path.join(report.root, environmentRelative);
+    if (!existingEnvironment) {
+      const venvExecutable = process.platform === "win32" ? "python.exe" : "python3";
+      const venvArgs = ["-m", "venv", environmentRelative];
+      actions.push(makeAction("python-venv-" + actions.length,
+        "Crear entorno virtual de Python",
+        "Crea un entorno aislado sin instalar paquetes ni ejecutar código del proyecto.",
+        venvExecutable, venvArgs, report.root,
+        venvExecutable + " -m venv " + environmentRelative));
+    }
+    if (hashLockedFiles.length) {
+      const pythonExecutable = process.platform === "win32"
+        ? path.join(environmentAbsolute, "Scripts", "python.exe")
+        : path.join(environmentAbsolute, "bin", "python");
+      for (const file of hashLockedFiles) {
+        actions.push(makeAction("python-install-" + actions.length,
+          "Instalar requisitos Python verificados",
+          "Solo acepta versiones exactas con hashes SHA-256 y paquetes wheel; evita compilar paquetes desde código fuente.",
+          pythonExecutable,
+          ["-m", "pip", "install", "--require-hashes", "--only-binary=:all:", "-r", file],
+          report.root,
+          pythonExecutable + " -m pip install --require-hashes --only-binary=:all: -r " + file));
+      }
+    } else if (requirementFiles.length) {
+      manualSteps.push("Python (" + directory + "): requirements.txt no está fijado completamente por versión y hashes; revisa e instala manualmente.");
+    } else {
+      manualSteps.push("Python (" + directory + "): revisar pyproject.toml/Pipfile y elegir un gestor antes de instalar.");
+    }
+  }
+  for (const moduleFile of report.manifests.filter((file) => path.posix.basename(file).toLowerCase() === "go.mod")) {
+    const directory = path.posix.dirname(moduleFile);
+    const sumFile = path.posix.join(directory === "." ? "" : directory, "go.sum");
+    if (report.manifests.some((file) => file.toLowerCase() === sumFile.toLowerCase())) {
+      actions.push(makeAction("go-download-" + actions.length, "Descargar módulos Go",
+        "Usa go.mod y go.sum para descargar dependencias; no compila ni ejecuta el proyecto.",
+        "go", ["mod", "download"], path.join(report.root, directory === "." ? "" : directory),
+        "go mod download"));
+    } else {
+      manualSteps.push("Go (" + directory + "): falta go.sum; revisa y genera el lockfile antes de descargar módulos.");
+    }
+  }
+  for (const manifest of report.manifests.filter((file) => path.posix.basename(file).toLowerCase() === "cargo.toml")) {
+    const directory = path.posix.dirname(manifest);
+    const lockFile = path.posix.join(directory === "." ? "" : directory, "Cargo.lock");
+    if (report.manifests.some((file) => file.toLowerCase() === lockFile.toLowerCase())) {
+      actions.push(makeAction("cargo-fetch-" + actions.length, "Descargar crates de Rust",
+        "Usa Cargo.lock y --locked; descarga dependencias sin compilar ni ejecutar build scripts.",
+        "cargo", ["fetch", "--locked", "--manifest-path", manifest],
+        path.join(report.root, directory === "." ? "" : directory),
+        "cargo fetch --locked --manifest-path " + manifest));
+    } else {
+      manualSteps.push("Rust (" + directory + "): falta Cargo.lock; revisa y genera el lockfile antes de descargar crates.");
+    }
+  }
   if (report.databaseEngines.length) {
     manualSteps.push("Base de datos (" + report.databaseEngines.join(", ") + "): comprobar motor, instancia, permisos y conexión local.");
     manualSteps.push("JCLI no creará, migrará, sobrescribirá ni restaurará bases de datos automáticamente.");
@@ -325,7 +414,9 @@ export async function executeSetupPlan(plan: SetupPlan, confirmed: boolean, runn
   if (!runnable.length) throw new Error("El plan no contiene acciones automáticas compatibles.");
   const results: SetupRunResult[] = [];
   for (const item of runnable) {
-    results.push({ actionId:item.id, title:item.title, ...(await runner(item.executable,item.args,item.cwd)) });
+    const result = { actionId:item.id, title:item.title, ...(await runner(item.executable,item.args,item.cwd)) };
+    results.push(result);
+    if (result.status !== "success") break;
   }
   return results;
 }

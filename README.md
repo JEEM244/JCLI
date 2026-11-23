@@ -153,7 +153,7 @@ troc setup report "C:\Proyectos\MVCConexion_5L1"
 - inspect y report solo leen el proyecto y no muestran valores de cadenas de conexión.
 - plan separa las restauraciones automáticas de los pasos manuales para Visual Studio 2026, SSMS 22 y bases de datos.
 - run --confirm puede restaurar paquetes .NET, npm/pnpm/yarn y Composer si encuentra los manifiestos y lockfiles adecuados. Desactiva scripts de instalación de terceros cuando el gestor lo permite.
-- Python se reconoce, pero la creación del entorno virtual y la instalación de paquetes siguen siendo manuales en esta primera etapa.
+- Python: JCLI crea `.venv` cuando no existe. Solo instala automáticamente un `requirements.txt` si todas las dependencias tienen versión exacta y hash SHA-256; usa `pip --require-hashes --only-binary=:all:` para evitar compilar paquetes desde código fuente. Si no cumple el formato estricto, deja la instalación como paso manual.
 - No se ejecutan SQL, migraciones, compilaciones ni restauraciones de respaldos. Tampoco se crean, modifican o eliminan bases de datos.
 - El análisis tiene límites de profundidad y cantidad de archivos para no recorrer carpetas de dependencias y resultados de compilación.
 

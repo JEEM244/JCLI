@@ -174,7 +174,8 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 
 - [ ] Extender las comprobaciones de conexión de solo lectura a MySQL y PostgreSQL con sus mecanismos de autenticación seguros.
 - [ ] Añadir perfiles locales protegidos por el almacén de credenciales del sistema; nunca guardar contraseñas en texto plano.
-- [ ] Completar los flujos de restauración para Python, Go, Rust y Java con validación de sus gestores de paquetes.
+- [x] Restaurar módulos Go y crates Rust únicamente con lockfiles; preparar entornos Python y restringir pip a versiones con hashes y wheels (V0.16.0).
+- [ ] Completar la resolución de dependencias Java y gestores avanzados de Python con perfiles de seguridad específicos.
 - [x] Diagnosticar componentes relevantes de Visual Studio 2026 para ASP.NET, .NET Framework y SQL SSDT clásico (V0.15.0).
 - [ ] Incorporar informes de preparación exportables y una verificación posterior a cada acción.
 
@@ -188,3 +189,16 @@ La comprobación requiere Windows, `sqlcmd`, permisos de Windows sobre SQL Serve
 - [x] Comprobar SQL Server Data Tools en proyectos \`.sqlproj\` clásicos.
 - [x] Mostrar estados disponible, faltante o no comprobable, sin abrir Visual Studio Installer ni modificar la instalación.
 - [x] Probar el mapeo de componentes y sus estados con pruebas automatizadas.
+
+
+## V0.16.0 — Restauración conservadora de Python, Go y Rust
+
+- [x] Detectar entornos \`.venv\`/ \`venv\` existentes y no recrearlos.
+- [x] Crear un entorno virtual Python cuando no existe, sin instalar ni ejecutar paquetes.
+- [x] Reconocer \`requirements.txt\` solo cuando todas sus entradas están fijadas con \`==\` y hashes SHA-256.
+- [x] Permitir instalación pip únicamente con \`--require-hashes\` y \`--only-binary=:all:\`.
+- [x] Descargar módulos Go solo si existe \`go.sum\`.
+- [x] Descargar crates Rust solo si existe \`Cargo.lock\`, con \`cargo fetch --locked\`.
+- [x] Detener las acciones posteriores cuando falle una restauración previa.
+- [x] Añadir pruebas para los lockfiles, restricciones Python y orden de ejecución.
+- [ ] Añadir soporte Java Maven/Gradle y gestores Python lockfile-first después de validar sus límites de ejecución.

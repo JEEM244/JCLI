@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { inspectProjectForSetup, createSetupPlan, executeSetupPlan } from "../dist/setup/projectSetup.js";
+import { inspectProjectForSetup, createSetupPlan, executeSetupPlan, isHashLockedPythonRequirements } from "../dist/setup/projectSetup.js";
 
 test("analiza ASP.NET MVC y SQL Server sin exponer valores de conexión", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-mvc-"));
@@ -106,4 +106,79 @@ test("reconoce SQL Database Project SDK sin exigir SSDT clásico", async () => {
     assert.ok(report.kinds.includes("SQL Database Project SDK"));
     assert.ok(!report.kinds.includes("SQL Database Project (SSDT clásico)"));
   } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+
+test("solo marca como instalables las dependencias Python fijadas con hash SHA-256", () => {
+  const hash = "a".repeat(64);
+  assert.equal(isHashLockedPythonRequirements("flask==3.0.0 --hash=sha256:" + hash), true);
+  assert.equal(isHashLockedPythonRequirements("flask>=3.0"), false);
+  assert.equal(isHashLockedPythonRequirements("flask==3.0.0"), false);
+  assert.equal(isHashLockedPythonRequirements("--index-url https://example.invalid/simple\nflask==3.0.0 --hash=sha256:" + hash), false);
+});
+
+test("planifica entorno Python y solo instala requisitos hash-locked", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-python-"));
+  try {
+    await writeFile(path.join(root, "requirements.txt"),
+      "flask==3.0.0 --hash=sha256:" + "a".repeat(64) + "\n");
+    const report = await inspectProjectForSetup(root);
+    assert.deepEqual(report.pythonHashLockedRequirements, ["requirements.txt"]);
+    const plan = createSetupPlan(report);
+    const venv = plan.actions.find((item) => item.id.startsWith("python-venv-"));
+    const install = plan.actions.find((item) => item.id.startsWith("python-install-"));
+    assert.ok(venv);
+    assert.ok(install);
+    assert.ok(install.args.includes("--require-hashes"));
+    assert.ok(install.args.includes("--only-binary=:all:"));
+    assert.ok(!install.args.includes("--no-build-isolation"));
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("no sobrescribe un entorno Python existente y conserva instalación manual sin hashes", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-python-existing-"));
+  try {
+    await mkdir(path.join(root, ".venv"), { recursive: true });
+    await writeFile(path.join(root, "requirements.txt"), "flask>=3.0\n");
+    const report = await inspectProjectForSetup(root);
+    assert.deepEqual(report.pythonEnvironments, [".venv"]);
+    const plan = createSetupPlan(report);
+    assert.ok(!plan.actions.some((item) => item.id.startsWith("python-venv-")));
+    assert.ok(!plan.actions.some((item) => item.id.startsWith("python-install-")));
+    assert.ok(plan.manualSteps.some((item) => item.includes("hashes")));
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("restaura módulos Go y Rust solo cuando existe lockfile", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jcli-setup-compiled-"));
+  try {
+    await mkdir(path.join(root, "goapp"), { recursive: true });
+    await mkdir(path.join(root, "rustapp"), { recursive: true });
+    await writeFile(path.join(root, "goapp", "go.mod"), "module example.test/app\n\ngo 1.22\n");
+    await writeFile(path.join(root, "goapp", "go.sum"), "example.test/dependency v1.0.0 h1:abc=\n");
+    await writeFile(path.join(root, "rustapp", "Cargo.toml"), '[package]\nname="demo"\nversion="0.1.0"\n');
+    await writeFile(path.join(root, "rustapp", "Cargo.lock"), 'version = 3\n');
+    const report = await inspectProjectForSetup(root);
+    const plan = createSetupPlan(report);
+    assert.ok(plan.actions.some((item) => item.command === "go mod download"));
+    assert.ok(plan.actions.some((item) => item.command.includes("cargo fetch --locked")));
+  } finally { await rm(root, { recursive:true, force:true }); }
+});
+
+test("detiene el plan después de la primera restauración fallida", async () => {
+  const plan = {
+    inspection: { root: "C:/demo", name: "demo" },
+    actions: [
+      { id:"one", title:"One", executable:"first", args:[], cwd:"C:/demo", command:"first", canRun:true },
+      { id:"two", title:"Two", executable:"second", args:[], cwd:"C:/demo", command:"second", canRun:true }
+    ],
+    manualSteps: []
+  };
+  const calls = [];
+  const results = await executeSetupPlan(plan, true, async (executable) => {
+    calls.push(executable);
+    return { status:executable === "first" ? "failed" : "success", exitCode:1, durationMs:1, stdout:"", stderr:"" };
+  });
+  assert.deepEqual(calls, ["first"]);
+  assert.equal(results.length, 1);
 });
